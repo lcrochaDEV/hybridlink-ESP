@@ -144,9 +144,11 @@ const char index_html[] PROGMEM = R"rawliteral(
             padding: 0.1em .5em; /* Aumentei um pouco o preenchimento lateral */
         }
         .border {
-            width: 100%%;
+            display: block;
+            width: auto;
             border-bottom: #3a3b3a 1px solid;
             position: relative;
+            margin: 8px 5px;
         }
 
         /* Estrutura do Switch */
@@ -206,6 +208,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <img src="https://cdn.iconscout.com/icon/free/png-256/free-espressif-logo-icon-svg-download-png-2285012.png?f=webp" />
             </div>
             <div class="module-itens"> 
+                <p><span>Modulo: </span>%MODULE_VALUE%</p>
                 <p><span>SSID: </span>%SSID_VALUE%</p>
                 <p><span>IP Address: </span>%IP_VALUE%</p>
                 <p><span>MAC Address: </span>%MAC_VALUE%</p>
@@ -220,61 +223,46 @@ const char index_html[] PROGMEM = R"rawliteral(
     </header>
     <div class="container_painel coluna">
         <h1>Painel Nexus</h1>
-        <h3>ESP-8266</h3>
-        <form id="action0" method="GET">
-            <div class="container">
-                <label>GPIO 00</label>
-                <label class="switch">
-                <input type="checkbox" name="gpio0" value="ON" checked>
-                <span class="slider"></span>
-                </label>
-            </div>
-        </form>
-        <span class="border"></span>
-        <!-- GPIO 2 -->
-        <form id="action2" method="GET">
-            <div class="container">
-                <label>GPIO 02</label>
-                <label class="switch">
-                    <input type="checkbox" name="gpio2" value="ON" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-        </form>
-    <span class="border"></span>
+        <h3>%MODULE_VALUE%</h3>
+        <div class="conteiner-form">
+
+        </div>
     </div>
     <script>
-        let action0 = document.querySelector('#action0');
-        let gpioZaro = document.querySelector('input[name=gpio0]');
-        
-        window.addEventListener('load', () => cmd(0,1));
-        window.addEventListener('load', () => cmd(2,1));
-        
-        action0.addEventListener('change', (event) => {
+
+        //let gpios = {"gpios":{"GPIO0":0,"GPIO2":2,"GPIO4":4,"GPIO5":5,"GPIO18":18,"GPIO19":19,"GPIO21":21,"GPIO22":22}}
+
+        let html_form = (list) => {
+            return Object.keys(list).map(nome => {
+                let pino = list[nome];
+                return (`
+                <form id="action" method="GET">
+                    <div class="container">
+                        <label>${nome}</label>
+                        <label class="switch">
+                        <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" value="ON" />
+                        <span class="slider"></span>
+                        </label>
+                    </div>
+                </form>
+                <span class="border"></span>
+            `)
+            }).join('');
+        }
+
+        let conteiner_form = document.querySelector('.conteiner-form')
+          
+        conteiner_form.addEventListener('change', (event) => {
+            let gpioZero = event.target;
+            let pin = gpioZero.dataset.gpio;
             event.preventDefault();
-            console.log(event.target.form.elements['gpio0'])
-            let gpioZero = event.target.form.elements['gpio0'];
-            if(gpioZaro.value === 'ON'){
-                gpioZero.value = "OFF"
-                 cmd(0,0)
+            if(gpioZero.checked){
+                cmd(parseInt(pin),1)
             }else {
-                gpioZero.value = "ON"
-                 cmd(0,1)
+                cmd(parseInt(pin),0)
             }
         })
-        let action2 = document.querySelector('#action2');
-        let gpioDois = document.querySelector('input[name=gpio2]');
-        action2.addEventListener('change', (event) => {
-            event.preventDefault();
-            let gpioDois = event.target.form.elements['gpio2'];
-            if(gpioDois.value === 'ON'){
-                gpioDois.value = "OFF"
-                cmd(2,0)
-            }else {
-                gpioDois.value = "ON"
-                cmd(2,1);
-            }
-        })
+
         function cmd(p, e) {
             fetch('/controlar', {
                 method: 'POST',
@@ -282,6 +270,24 @@ const char index_html[] PROGMEM = R"rawliteral(
                 body: JSON.stringify({pino: p, estado: e})
             });
         }
+
+
+        let carregarGpios = async () =>  {
+            try {
+                    // Busca o JSON da rota que você criou no C++
+                    let response = await fetch('/config_pinos');
+                    let data = await response.json();
+           
+                    // data.gpios assume que o retorno de meuEsp.pinGPIO() é {"gpios":{...}}
+                    let listaGpios = data.gpios; 
+                    // Insere o HTML gerado no container
+                    document.querySelector('.conteiner-form').innerHTML = html_form(listaGpios);
+                    
+                } catch (error) {
+                    console.error("Erro ao carregar pinos do ESP:", error);
+                }
+            }
+        window.addEventListener('DOMContentLoaded', async () => carregarGpios());
     </script>
 </body>
 </html>

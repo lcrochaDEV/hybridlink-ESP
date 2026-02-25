@@ -1,10 +1,10 @@
 // Configuração automática de bibliotecas baseada na placa
 #if defined(ESP8266)
   #include <ESP8266WiFi.h>
-  
 #elif defined(ESP32)
   #include <WiFi.h>
 #endif
+
 #include <WiFiManager.h> // Biblioteca:
 #include "ConnectWifi.h"
 

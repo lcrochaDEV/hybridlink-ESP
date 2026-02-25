@@ -14,6 +14,9 @@
 #include <ESPAsyncWebServer.h>
 #include "index_html.h"
 
+#include "ModuloESP.h"
+ModuloESP meuEsp; 
+
 // Cria o objeto Servidor na porta 80 (porta HTTP padrão)
 AsyncWebServer server(80);
 
@@ -30,20 +33,26 @@ String processor(const String& var){
     
     if(var == "MAC_VALUE")  return WiFi.macAddress(); // Retorna o endereço MAC
 
-    if(var == "TOTAL_RAN_VALUE")      return String((unsigned long)ESP.getFreeHeap() + system_get_free_heap_size() / 1024) + " KB";
+    if(var == "MODULE_VALUE")         return meuEsp.modelBoardESP();
 
-    if(var == "FLASH_SIZE_VALUE")     return String((unsigned long)ESP.getFlashChipRealSize() / (1024 * 1024)) + " MB";
+    if(var == "TOTAL_RAN_VALUE")      return meuEsp.total_ran();
+
+    if(var == "FLASH_SIZE_VALUE")     return meuEsp.flash_size();
     
-    if(var == "MENOR_RAN_SIZE_VALUE") return String((unsigned long)ESP.getFreeHeap() / 1024) + " KB"; 
+    if(var == "MENOR_RAN_SIZE_VALUE") return meuEsp.menor_ran_size();
 
-    if(var == "SKETCH_SIZE_VALUE")    return String((unsigned long)ESP.getSketchSize() / 1024) + " KB";
-
+    if(var == "SKETCH_SIZE_VALUE")    return meuEsp.sketch_Size();
     
     // Para qualquer outro placeholder não mapeado
     return String("");
 }
 
 void startServer() {
+    
+    server.on("/config_pinos", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "application/json", meuEsp.pinGPIO());
+    });
+
     // Configuração de Rotas (Endpoints)
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send_P(200, "text/html", index_html, processor);

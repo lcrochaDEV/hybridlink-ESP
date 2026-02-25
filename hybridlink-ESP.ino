@@ -10,8 +10,8 @@ void setup() {
   pinMode(0, OUTPUT);
   pinMode(2, OUTPUT);
   
-  digitalWrite(0, HIGH);
-  digitalWrite(2, HIGH);
+  digitalWrite(0, LOW);
+  digitalWrite(2, LOW);
 
   connectWifi.accesspoint();
   startServer();   
