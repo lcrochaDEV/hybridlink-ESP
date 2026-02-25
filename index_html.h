@@ -9,6 +9,55 @@ const char index_html[] PROGMEM = R"rawliteral(
     <title>Painel Nexus</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        /* Ajuste para tablets e celulares */
+        @media (max-width: 768px) {
+            header {
+                padding: 10px;
+            }
+
+            .module {
+                flex-direction: column; /* Empilha a imagem e os dados */
+                align-items: center;
+                text-align: center;
+            }
+
+            .module img {
+                height: 80px; /* Reduz o logo em telas menores */
+                margin-bottom: 15px;
+                margin-right: 0;
+            }
+
+            .module-itens {
+                padding-right: 0;
+                margin-bottom: 10px;
+                width: 100%%;
+            }
+
+            .container_painel {
+                width: 90%%; /* Ocupa quase a tela toda lateralmente */
+                max-width: none;
+                margin: 10px auto; /* Centraliza o painel */
+                padding: 1.5em 1em;
+            }
+
+            h1 { font-size: 22px; text-align: center; }
+            h3 { text-align: center; width: 100%%; }
+        }
+
+        /* Ajuste fino para celulares muito pequenos (iPhone SE, etc) */
+        @media (max-width: 380px) {
+            .container {
+                gap: 5px;
+            }
+            
+            .module-itens p {
+                font-size: 12px; /* Diminui a fonte para não quebrar linha */
+            }
+
+            .switch {
+                transform: scale(0.9); /* Reduz levemente o switch se o espaço for crítico */
+            }
+        }
         body { 
             margin: 0;
             padding: 0;
@@ -32,18 +81,17 @@ const char index_html[] PROGMEM = R"rawliteral(
         .container_painel {
             display: flex;
             flex-direction: column; 
-            align-items: flex-start;
-            justify-content: flex-start;
-            gap: 20px;  
-            padding: 1.5em 2.5em; /* Aumentei um pouco o preenchimento lateral */
+            gap: 10px;  
             position: relative;
             z-index: 0;
             border-radius: 10px;
             background: #11111113; 
             color: white;
             width: fit-content;
-            margin: 5px;
+            margin: 10px;
+            
         }
+        
         /* Camada 1: O Gradiente Animado (Fica por baixo) */
         .container_painel:before {
             content: "";
@@ -68,7 +116,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             left: 1px;
             right: 1px;
             bottom: 1px;
-            z-index: -1;
+            z-index: -2;
             background: #111111; /* Cor interna do painel */
             border-radius: 9px;
         }
@@ -79,13 +127,26 @@ const char index_html[] PROGMEM = R"rawliteral(
             100%% { background-position: 0 0; }
         }
 
+        .container_painel h1 {
+            background-color: rgba(62, 29, 100, 0.301);
+            margin: 0;
+            border-top-left-radius: 11px; 
+            border-top-right-radius: 11px; 
+            padding: 5px;   
+            position: relative;
+            z-index: 0;         
+        }
         /* Container e Rótulo */
-        .container { 
-            font-family: sans-serif; 
-            margin-bottom: 20px; 
-            display: flex; 
+        .container, h3 { 
+            display: flex;
+            justify-content: space-between; 
             align-items: center; 
-            gap: 15px;
+            padding: 0.1em .5em; /* Aumentei um pouco o preenchimento lateral */
+        }
+        .border {
+            width: 100%%;
+            border-bottom: #3a3b3a 1px solid;
+            position: relative;
         }
 
         /* Estrutura do Switch */
@@ -121,6 +182,8 @@ const char index_html[] PROGMEM = R"rawliteral(
             left: 4px;
             bottom: 4px;
             background-color: white;
+            background-image: url('https://cdn.iconscout.com/icon/free/png-256/free-espressif-logo-icon-svg-download-png-2285012.png?f=webp');
+            background-size: cover; /* Ajusta a imagem ao tamanho da bolinha */ 
             transition: .4s;
             border-radius: 50%%;
         }
@@ -143,7 +206,6 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <img src="https://cdn.iconscout.com/icon/free/png-256/free-espressif-logo-icon-svg-download-png-2285012.png?f=webp" />
             </div>
             <div class="module-itens"> 
-                <p><span>Nome: </span>%NAME_VALUE%</p>
                 <p><span>SSID: </span>%SSID_VALUE%</p>
                 <p><span>IP Address: </span>%IP_VALUE%</p>
                 <p><span>MAC Address: </span>%MAC_VALUE%</p>
@@ -156,29 +218,30 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
         </div>
     </header>
-    <h1>Painel Nexus</h1>
     <div class="container_painel coluna">
+        <h1>Painel Nexus</h1>
         <h3>ESP-8266</h3>
         <form id="action0" method="GET">
             <div class="container">
-                <label>GPIO 0</label>
+                <label>GPIO 00</label>
                 <label class="switch">
                 <input type="checkbox" name="gpio0" value="ON" checked>
                 <span class="slider"></span>
                 </label>
             </div>
         </form>
-
+        <span class="border"></span>
         <!-- GPIO 2 -->
         <form id="action2" method="GET">
             <div class="container">
-                <label>GPIO 2</label>
+                <label>GPIO 02</label>
                 <label class="switch">
-                <input type="checkbox" name="gpio2" value="ON" checked>
-                <span class="slider"></span>
+                    <input type="checkbox" name="gpio2" value="ON" checked>
+                    <span class="slider"></span>
                 </label>
             </div>
         </form>
+    <span class="border"></span>
     </div>
     <script>
         let action0 = document.querySelector('#action0');

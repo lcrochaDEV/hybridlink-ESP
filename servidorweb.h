@@ -10,6 +10,7 @@
   #include <AsyncTCP.h>
   #include <WiFi.h>
 #endif
+
 #include <ESPAsyncWebServer.h>
 #include "index_html.h"
 
@@ -25,14 +26,14 @@ String processor(const String& var){
 
     if(var == "SSID_VALUE") return (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "Desconectado"; // Retorna o SSID atual ou uma mensagem se desconectado
     
-    if(var == "IP_VALUE") return (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0"; // Retorna o IP local
+    if(var == "IP_VALUE")   return (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0"; // Retorna o IP local
     
-    if(var == "MAC_VALUE") return WiFi.macAddress(); // Retorna o endereço MAC
+    if(var == "MAC_VALUE")  return WiFi.macAddress(); // Retorna o endereço MAC
 
-    if(var == "TOTAL_RAN_VALUE")      return String((unsigned long)ESP.getFreeHeap() / 1024) + " KB";
+    if(var == "TOTAL_RAN_VALUE")      return String((unsigned long)ESP.getFreeHeap() + system_get_free_heap_size() / 1024) + " KB";
 
-    if(var == "FLASH_SIZE_VALUE")     return String((unsigned long)ESP.getFlashChipSize() / (1024 * 1024)) + " MB";
-
+    if(var == "FLASH_SIZE_VALUE")     return String((unsigned long)ESP.getFlashChipRealSize() / (1024 * 1024)) + " MB";
+    
     if(var == "MENOR_RAN_SIZE_VALUE") return String((unsigned long)ESP.getFreeHeap() / 1024) + " KB"; 
 
     if(var == "SKETCH_SIZE_VALUE")    return String((unsigned long)ESP.getSketchSize() / 1024) + " KB";
@@ -58,7 +59,7 @@ void startServer() {
         int estado = doc["estado"];
         
         if (pino == 0 || pino == 2) {
-            digitalWrite(pino, estado);
+            //digitalWrite(pino, estado);
             Serial.printf("Acionado o Pino: %d com estado: %d\n", pino, estado);
             request->send(200, "application/json", "{\"status\":\"ok\"}");
         } else {
