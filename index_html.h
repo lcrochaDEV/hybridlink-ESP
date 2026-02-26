@@ -231,8 +231,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     <script>
 
         //let gpios = {"gpios":{"GPIO0":0,"GPIO2":2,"GPIO4":4,"GPIO5":5,"GPIO18":18,"GPIO19":19,"GPIO21":21,"GPIO22":22}}
-
         let html_form = (list) => {
+           
             return Object.keys(list).map(nome => {
                 let pino = list[nome];
                 return (`
@@ -240,7 +240,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                     <div class="container">
                         <label>${nome}</label>
                         <label class="switch">
-                        <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" value="ON" />
+                        <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" />
                         <span class="slider"></span>
                         </label>
                     </div>
@@ -250,12 +250,13 @@ const char index_html[] PROGMEM = R"rawliteral(
             }).join('');
         }
 
+        //document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
         let conteiner_form = document.querySelector('.conteiner-form')
           
         conteiner_form.addEventListener('change', (event) => {
+            event.preventDefault();
             let gpioZero = event.target;
             let pin = gpioZero.dataset.gpio;
-            event.preventDefault();
             if(gpioZero.checked){
                 cmd(parseInt(pin),1)
             }else {
@@ -270,7 +271,6 @@ const char index_html[] PROGMEM = R"rawliteral(
                 body: JSON.stringify({pino: p, estado: e})
             });
         }
-
 
         let carregarGpios = async () =>  {
             try {
@@ -287,7 +287,27 @@ const char index_html[] PROGMEM = R"rawliteral(
                     console.error("Erro ao carregar pinos do ESP:", error);
                 }
             }
-        window.addEventListener('DOMContentLoaded', async () => carregarGpios());
+        window.addEventListener('DOMContentLoaded', carregarGpios);
+
+
+        //let pinos = { "pino0": 0, "pino2": 1, "pino4": 1, "pino5": 1, "pino18": 1, "pino19": 1, "pino21": 1, "pino22": 0  }
+
+        let verificarStatus = async () =>  {
+            try {
+                    let response = await fetch('/status');
+                    let data = await response.json();
+                    console.log("Estados atuais:", data);
+                
+                    let list = document.querySelectorAll('input')
+                    Object.keys(data).forEach((chave, index) => {
+                        if (list[index]) list[index].checked = (data[chave] === 1);
+                    });
+                } catch (err) {
+                    console.error("Erro ao ler estados:", err);
+                }
+        } 
+        
+        window.addEventListener('DOMContentLoaded', verificarStatus);
     </script>
 </body>
 </html>

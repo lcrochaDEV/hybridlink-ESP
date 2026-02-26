@@ -68,12 +68,24 @@ void startServer() {
         int estado = doc["estado"];
         
         if (pino == 0 || pino == 2) {
-            //digitalWrite(pino, estado);
+            digitalWrite(pino, estado);
             Serial.printf("Acionado o Pino: %d com estado: %d\n", pino, estado);
             request->send(200, "application/json", "{\"status\":\"ok\"}");
         } else {
             request->send(400, "application/json", "{\"status\":\"erro\"}");
         }
+    });
+    server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
+        JsonDocument doc;
+        
+        // Lendo o estado atual dos pinos permitidos
+        doc["pino0"] = digitalRead(0);
+        doc["pino2"] = digitalRead(2);
+
+        String response;
+        serializeJson(doc, response);
+        
+        request->send(200, "application/json", response);
     });
   // Inicia o Servidor 
   server.begin();
