@@ -75,9 +75,16 @@ const char index_html[] PROGMEM = R"rawliteral(
         .module img {
             height: 130px;
             margin-right: 10px;
+            padding-top: 4px;
+            padding-left: 4px;
         }
-        .module-itens { padding-right: 40px; }        
-
+        .module-itens { 
+            padding-right: 40px;
+            border-right: 1px solid #0303036e;
+        }        
+        .module-itens p {
+            margin-left: 10px;
+        }
         .container_painel {
             display: flex;
             flex-direction: column; 
