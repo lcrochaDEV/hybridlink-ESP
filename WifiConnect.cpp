@@ -5,14 +5,14 @@
   #include <WiFi.h>
 #endif
 
-#include <WiFiManager.h> // Biblioteca:
-#include "ConnectWifi.h"
+#include <WiFiManager.h>
+#include "WifiConnect.h"
 
-ConnectWifi::ConnectWifi(const char* ssid, const char* password)
+WifiConnect::WifiConnect(const char* ssid, const char* password)
   : ssid(ssid), password(password) {
   }
 
-void ConnectWifi::connectionsMethod(){
+void WifiConnect::connectionsMethod(){
   if (ssid == nullptr) {
         Serial.println("Erro: SSID não fornecido para conexão manual.");
         return;
@@ -44,23 +44,27 @@ void ConnectWifi::connectionsMethod(){
   connect_status();
 }
 
-void ConnectWifi::accesspoint(){
+void WifiConnect::accesspoint(){
   WiFiManager wm; 
   
   // Configura para reconectar automaticamente se cair
-  //WiFi.persistent(false);
+  WiFi.persistent(false);
   WiFi.setAutoReconnect(true);
   
   //wm.resetSettings();
   wm.setDebugOutput(false); 
-  if(!wm.autoConnect("ESP:AP", "senha123")) { 
+  String macLimpo = WiFi.macAddress();
+  macLimpo.replace(":", "");
+  String ssidFinal = "ESP:" + macLimpo;
+
+  if(!wm.autoConnect(ssidFinal.c_str(), "senha123")) { 
     Serial.println("Falha na conexão ou tempo esgotado"); 
     return;
   } 
   connect_status();
 }
 
-bool ConnectWifi::connect_status(){
+bool WifiConnect::connect_status(){
     if (WiFi.status() == WL_CONNECTED) {
         Serial.printf("\nConectado à Rede: %s\n", WiFi.SSID().c_str()); 
         Serial.printf("Endereco IP: %s\n", WiFi.localIP().toString().c_str());

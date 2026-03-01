@@ -1,5 +1,5 @@
 #include <ArduinoJson.h>
-#include "ModuloESP.h"
+#include "PhysicalAccessContrel.h"
 
 // Configuração automática de bibliotecas baseada na placa
 #if defined(ESP8266)
@@ -8,13 +8,11 @@
   inline String MODELO_VALUE() { return String(ESP.getChipModel()); }
 #endif
 
-ModuloESP::ModuloESP() {
+PhysicalAccessContrel::PhysicalAccessContrel() {}
 
-}
+String PhysicalAccessContrel::modelBoardESP() { return MODELO_VALUE(); }
 
-String ModuloESP::modelBoardESP() { return MODELO_VALUE(); }
-
-String ModuloESP::total_ran() { 
+String PhysicalAccessContrel::total_ran() { 
   #if defined(ESP8266)
     // No ESP8266 usamos a soma para estimar a RAM total livre
     return String((ESP.getFreeHeap() + 32000) / 1024) + " KB"; 
@@ -24,7 +22,7 @@ String ModuloESP::total_ran() {
   #endif
 }
 
-String ModuloESP::flash_size() { 
+String PhysicalAccessContrel::flash_size() { 
   #if defined(ESP8266)
     return String(ESP.getFlashChipRealSize() / (1024 * 1024)) + " MB";
   #else
@@ -32,14 +30,16 @@ String ModuloESP::flash_size() {
   #endif
 }
 
-String ModuloESP::menor_ran_size() { return String((unsigned long)ESP.getFreeHeap() / 1024) + " KB"; }
+String PhysicalAccessContrel::menor_ran_size() { 
+  return String((unsigned long)ESP.getFreeHeap() / 1024) + " KB"; 
+}
 
-String ModuloESP::sketch_Size() { return String((unsigned long)ESP.getSketchSize() / 1024) + " KB"; }
-
-
+String PhysicalAccessContrel::sketch_Size() { 
+  return String((unsigned long)ESP.getSketchSize() / 1024) + " KB"; 
+}
 
 // Retorna um JSON dinâmico com quantos GPIOs cada placa tiver
-String ModuloESP::pinGPIO() {
+String PhysicalAccessContrel::pinGPIO() {
   StaticJsonDocument<512> doc;
   JsonObject gpios = doc.createNestedObject("gpios");
 

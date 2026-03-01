@@ -1,7 +1,7 @@
-#include "ConnectWifi.h"
+#include "WirelessConnection.h"
 #include "servidorweb.h"
 
-ConnectWifi connectWifi;
+WirelessConnection wirelessConnection;
 
 void setup() {
   Serial.begin(115200);
@@ -13,10 +13,8 @@ void setup() {
   digitalWrite(0, LOW);
   digitalWrite(2, LOW);
 
-  connectWifi.accesspoint();
+  wirelessConnection.accesspoint();
   startServer();   
 }
 
-void loop() {
-
-}
+void loop() {}

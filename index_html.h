@@ -95,8 +95,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             background: #11111113; 
             color: white;
             width: fit-content;
-            margin: 10px;
-            
+            margin: 10px; 
         }
         
         /* Camada 1: O Gradiente Animado (Fica por baixo) */
@@ -148,9 +147,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             display: flex;
             justify-content: space-between; 
             align-items: center; 
-            padding: 0.1em .5em; /* Aumentei um pouco o preenchimento lateral */
+            padding: .1em .5em; /* Aumentei um pouco o preenchimento lateral */
         }
-        .border {
+        border {
             display: block;
             width: auto;
             border-bottom: #3a3b3a 1px solid;
@@ -164,6 +163,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             display: inline-block;
             width: 60px;
             height: 30px;
+            margin-left: 20px;
         }
 
         .switch input { 
@@ -206,6 +206,34 @@ const char index_html[] PROGMEM = R"rawliteral(
         input:checked + .slider:before { 
             transform: translateX(30px); 
         }
+        .container-radio {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        /* TABELA*/
+        .gpio-table {
+            width: 100%%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        .gpio-table th {
+            padding: 5px;
+            text-align: center;
+            background-color: rgba(62, 29, 100, 0.301);
+        }
+        .gpio-table td {
+            padding: 10px;
+            text-align: center;
+        }
+        .container-radio input {
+            margin-right: 5px;
+            margin-bottom: 3px;
+            width: 18px;
+            height: 18px;
+            accent-color: #2196F3; /* Cor do seletor */
+        }
+
     </style>
 </head>
 <body>
@@ -237,47 +265,115 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
     <script>
 
-        //let gpios = {"gpios":{"GPIO0":0,"GPIO2":2,"GPIO4":4,"GPIO5":5,"GPIO18":18,"GPIO19":19,"GPIO21":21,"GPIO22":22}}
+        let gpios = {"gpios":{"GPIO0":0,"GPIO2":2,"GPIO4":4,"GPIO5":5,"GPIO18":18,"GPIO19":19,"GPIO21":21,"GPIO22":22}}
         let html_form = (list) => {
            
             return Object.keys(list).map(nome => {
                 let pino = list[nome];
                 return (`
                 <form id="action" method="GET">
-                    <div class="container">
-                        <label>${nome}</label>
-                        <label class="switch">
-                        <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" />
-                        <span class="slider"></span>
-                        </label>
-                    </div>
+                    <table class="gpio-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Modo</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <div class="container">
+                                        <label>${nome}</label>
+                                        <label class="switch">
+                                            <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" class="switch-input" />
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <label class="container-radio">
+                                        <input type="radio" name="mode_${pino}" value="OUTPUT" data-gpio="${pino}" class="mode-input" />
+                                        <span class="label-text">OUTPUT</span>
+                                    </label>
+                              
+                                    <label class="container-radio">
+                                        <input type="radio" name="mode_${pino}" value="INPUT" data-gpio="${pino}" class="mode-input" />
+                                        <span class="label-text">INPUT</span>
+                                    </label>
+                          
+                                    <label class="container-radio">
+                                        <input type="radio" name="mode_${pino}" value="INPUT_PULLUP" data-gpio="${pino}" class="mode-input" />
+                                        <span class="label-text">INPUT_PULLUP</span>
+                                    </label>
+                           
+                                    <label class="container-radio">
+                                        <input type="radio" name="mode_${pino}" value="INPUT_PULLDOWN" data-gpio="${pino}" class="mode-input" />
+                                        <span class="label-text">INPUT_PULLDOWN</span>
+                                    </label>
+                                </td>
+                                <td>
+                                    
+                                    <label class="container-radio">
+                                        <input type="radio" name="level_${pino}" value="1" data-gpio="${pino}" class="level-input" />
+                                        <span>HIGH</span>
+                                    </label>
+                                    <label class="container-radio">
+                                        <input type="radio" name="level_${pino}" value="0" data-gpio="${pino}" class="level-input" />
+                                        <span>LOW</span>
+                                    </label>
+
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </form>
                 <span class="border"></span>
-            `)
+                `)
             }).join('');
         }
 
-        //document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
-        let conteiner_form = document.querySelector('.conteiner-form')
-          
-        conteiner_form.addEventListener('change', (event) => {
-            event.preventDefault();
-            let gpioZero = event.target;
-            let pin = gpioZero.dataset.gpio;
-            if(gpioZero.checked){
-                cmd(parseInt(pin),1)
-            }else {
-                cmd(parseInt(pin),0)
-            }
-        })
+        document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
+             
+        // Função Universal de Envio (Fetch API)
+        async function enviarComando(url, dados) {
+            console.log(`Enviando para ${url}:`, dados);
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
 
-        function cmd(p, e) {
-            fetch('/controlar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({pino: p, estado: e})
-            });
+                if (!response.ok) throw new Error('Erro na resposta do servidor');
+                
+                console.log("Sucesso!");
+            } catch (err) {
+                console.error("Falha ao enviar comando:", err);
+                alert("Erro ao conectar com o dispositivo.");
+            }
         }
+        document.querySelector('.conteiner-form').addEventListener('change', (event) => {
+            console.log(event)
+            const target = event.target;
+            const pin = target.dataset.gpio;
+
+            if (target.classList.contains('switch-input')) {
+                // Liga/Desliga Geral
+                enviarComando('/controlar', { pino: parseInt(pin), estado: target.checked ? 1 : 0 });
+                console.log('seleção')
+            } 
+            else if (target.classList.contains('mode-input')) {
+                // Muda modo (INPUT/OUTPUT)
+                enviarComando('/config_modo', { pino: parseInt(pin), modo: target.value });
+            }
+            else if (target.classList.contains('level-input')) {
+                // Muda Nível Lógico (HIGH/LOW)
+                enviarComando('/set_level', { pino: parseInt(pin), nivel: parseInt(target.value) });
+            }
+        });
+
 
         let carregarGpios = async () =>  {
             try {
@@ -299,25 +395,31 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         //let pinos = { "pino0": 0, "pino2": 1, "pino4": 1, "pino5": 1, "pino18": 1, "pino19": 1, "pino21": 1, "pino22": 0  }
 
-        let verificarStatus = async () =>  {
+        let verificarStatus = async (event) =>  {
             try {
-                    let response = await fetch('/status');
-                    let data = await response.json();
-                    console.log("Estados atuais:", data);
-                
-                    let list = document.querySelectorAll('input')
-                    Object.keys(data).forEach((chave, index) => {
-                        if (list[index]) list[index].checked = (data[chave] === 1);
-                    });
-                } catch (err) {
-                    console.error("Erro ao ler estados:", err);
-                }
+                let response = await fetch('/status');
+                let data = await response.json();
+                console.log("Estados atuais:", data);
+                let list = document.querySelectorAll('.switch-input');
+            
+                Object.keys(data).forEach((chave, index) => {
+                    // 1. Sincroniza o Switch (ON/OFF)
+                    if(!!data[chave]) list[index].checked = true;
+                    // 2. Sincroniza o Modo (Radio)
+                    // 3. Sincroniza o Nível Lógico (HIGH/LOW)
+                });
+            } catch (err) {
+                console.error("Erro ao ler estados:", err);
+            }
+            //console.log(list[0].checked = true)
         } 
         
         window.addEventListener('DOMContentLoaded', verificarStatus);
     </script>
 </body>
 </html>
+
+
 )rawliteral";
 
 #endif

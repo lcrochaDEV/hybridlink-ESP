@@ -1,11 +1,11 @@
-#ifndef CONNECTWIFI_H
-#define CONNECTWIFI_H
+#ifndef WIFICONNECT_H
+#define WIFICONNECT_H
 
 #include <Arduino.h>
 
-class ConnectWifi {
+class WifiConnect {
   public:
-    ConnectWifi(const char* ssid = nullptr, const char* password = nullptr);
+    WifiConnect(const char* ssid = nullptr, const char* password = nullptr);
     void connectionsMethod();
     bool connect_status();
     void accesspoint();
