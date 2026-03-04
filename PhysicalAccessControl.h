@@ -3,9 +3,9 @@
 
 #include <Arduino.h>
 
-class PhysicalAccessContrel {
+class PhysicalAccessControl {
   public:
-    PhysicalAccessContrel();
+    PhysicalAccessControl();
       String  modelBoardESP();
       String total_ran();
       String flash_size();

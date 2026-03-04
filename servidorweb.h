@@ -14,8 +14,8 @@
 #include <ESPAsyncWebServer.h>
 #include "index_html.h"
 
-#include "PhysicalAccessContrel.h"
-PhysicalAccessContrel meuEsp; 
+#include "AccessControl.h"
+AccessControl meuEsp; 
 
 // Cria o objeto Servidor na porta 80 (porta HTTP padrão)
 AsyncWebServer server(80);
@@ -57,30 +57,6 @@ void startServer() {
         request->send(200, "application/json", meuEsp.pinGPIO());
     });
 
-    server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        // 1. Criamos os documentos JSON
-        JsonDocument statusDoc; 
-        JsonDocument pinsDoc;
-
-        // 2. Pegamos a String do seu método e transformamos em um objeto JSON usável
-        deserializeJson(pinsDoc, meuEsp.pinGPIO());
-        JsonObject gpios = pinsDoc["gpios"];
-
-        // 3. Iteramos sobre cada par (Chave/Valor) dentro do objeto "gpios"
-        for (JsonPair kv : gpios) {
-            const char* gpioName = kv.key().c_str(); // Ex: "GPIO18"
-            int pinNumber = kv.value().as<int>();    // Ex: 18
-
-            // 4. Lemos o estado do pino fisicamente e adicionamos ao JSON de resposta
-            statusDoc[gpioName] = digitalRead(pinNumber);
-        }
-
-        String response;
-        serializeJson(statusDoc, response);
-        
-        request->send(200, "application/json", response);
-    });
-
     // Rota de Controle (JSON)
     server.on("/controlar", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, 
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
@@ -109,6 +85,29 @@ void startServer() {
         }
     });
 
+    server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
+        // 1. Criamos os documentos JSON
+        JsonDocument statusDoc; 
+        JsonDocument pinsDoc;
+
+        // 2. Pegamos a String do seu método e transformamos em um objeto JSON usável
+        deserializeJson(pinsDoc, meuEsp.pinGPIO());
+        JsonObject gpios = pinsDoc["gpios"];
+
+        // 3. Iteramos sobre cada par (Chave/Valor) dentro do objeto "gpios"
+        for (JsonPair kv : gpios) {
+            const char* gpioName = kv.key().c_str(); // Ex: "GPIO18"
+            int pinNumber = kv.value().as<int>();    // Ex: 18
+
+            // 4. Lemos o estado do pino fisicamente e adicionamos ao JSON de resposta
+            statusDoc[gpioName] = digitalRead(pinNumber);
+        }
+
+        String response;
+        serializeJson(statusDoc, response);
+        
+        request->send(200, "application/json", response);
+    });
     
   // Inicia o Servidor 
   server.begin();
