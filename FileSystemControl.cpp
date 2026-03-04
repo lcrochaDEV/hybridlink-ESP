@@ -50,12 +50,14 @@ void FileSystemControl::saveConfig(JsonDocument& doc) {
 
 bool FileSystemControl::loadConfig(JsonDocument& doc) {
     if (!LittleFS.exists(FILE_PATH)) {
+        doc.to<JsonObject>();
         Serial.println("Arquivo de configuração não existe.");
         return false;
     }
 
     File file = LittleFS.open(FILE_PATH, "r");
     if (!file) {
+        doc.to<JsonObject>();
         Serial.println("Falha ao abrir arquivo para leitura"); 
         return false; 
     }
@@ -66,6 +68,7 @@ bool FileSystemControl::loadConfig(JsonDocument& doc) {
   
     if (error) {
         Serial.print("Erro no JSON: ");
+        doc.to<JsonObject>();
         Serial.println(error.c_str());
         return false;
     }
@@ -81,9 +84,15 @@ void FileSystemControl::fillJson(JsonDocument& doc, const char* ssid, const char
 
 bool FileSystemControl::credentials() {
     JsonDocument doc; 
+
+    loadConfig(doc); // Carrega Objeto
     // Usa as variáveis privadas da classe
+    // Verifica se houve mudança real para poupar a vida útil da Flash
+    if (doc["ssid"] == _ssid && doc["pass"] == _password) {
+        Serial.println("Credenciais idênticas às já salvas. Ignorando escrita.");
+        return true;
+    }
     fillJson(doc, _ssid.c_str(), _password.c_str());
-    returnObjectData();
     saveConfig(doc);
     return true;
 }
@@ -109,10 +118,15 @@ void FileSystemControl::returnObjectData() {
 void FileSystemControl::addPinConfig(int pin, String mode, String state) {
     JsonDocument doc;
     
+    // 1. O loadConfig garante que 'doc' seja o conteúdo atual ou {}
     loadConfig(doc);
 
-    // 2. Agora sim, lida com os pinos sem apagar o que carregou acima
-    JsonArray pins = doc["pins"].to<JsonArray>(); 
+    // 2. Acesso seguro ao array "pins"
+    // Se a chave não existe, o .to<JsonArray>() a cria. 
+    // Se já existe, o .as<JsonArray>() permite adicionar sem limpar os antigos.
+    JsonArray pins = doc["pins"].is<JsonArray>() ? 
+                     doc["pins"].as<JsonArray>() : 
+                     doc["pins"].to<JsonArray>();
 
     bool found = false;
     for (JsonObject p : pins) {
@@ -131,12 +145,11 @@ void FileSystemControl::addPinConfig(int pin, String mode, String state) {
         pinObj["state"] = state;
     }
 
-    // 3. Salva a união: [WiFi + Pinos]
+    // 3. Salva o documento completo (WiFi + todos os pinos)
     saveConfig(doc);
     
-    Serial.printf("Pino %d processado. WiFi preservado.\n", pin);
+    Serial.printf("Pino %d processado. Total no arquivo: %d\n", pin, pins.size());
 }
-
 // DELETA ARQUIVO DE CONFIGURAÇÕES
 void FileSystemControl::factoryReset() {
     if (LittleFS.exists(FILE_PATH)) {

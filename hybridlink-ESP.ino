@@ -21,7 +21,7 @@ void setup() {
   wirelessConnection.accesspoint();
   startServer();   
   setupFS();
-  //sysFS.factoryReset();
+  sysFS.factoryReset(); 
   sysFS.returnObjectData();
 }
 
@@ -32,12 +32,19 @@ void setupFS() {
   
   if(sysFS.begin()) {
       JsonDocument doc;
+      
+      sysFS.loadConfig(doc);
       // Só grava as credenciais se o arquivo não puder ser carregado
       if(!sysFS.loadConfig(doc)) {
-          sysFS.credentials();
-          //sysFS.addPinConfig();
-          sysFS.loadConfig(doc); // Carrega após gravar
+          Serial.println("Arquivo não encontrado. Criando base...");
       }
+
+      //sysFS.credentials();
+      //sysFS.addPinConfig();
+      //sysFS.loadConfig(doc); // Carrega após gravar
+      //sysFS.addPinConfig(0, "OUTPUT", "LOW");
+      //sysFS.addPinConfig(2, "OUTPUT", "HIGH");
+
       
       Serial.print("SSID Ativo: ");
       Serial.println(doc["ssid"].as<const char*>());
