@@ -15,7 +15,7 @@
 #include "index_html.h"
 
 #include "AccessControl.h"
-AccessControl meuEsp; 
+AccessControl accessSys; 
 
 // Cria o objeto Servidor na porta 80 (porta HTTP padrão)
 AsyncWebServer server(80);
@@ -33,15 +33,15 @@ String processor(const String& var){
     
     if(var == "MAC_VALUE")  return WiFi.macAddress(); // Retorna o endereço MAC
 
-    if(var == "MODULE_VALUE")         return meuEsp.modelBoardESP();
+    if(var == "MODULE_VALUE")         return accessSys.modelBoardESP();
 
-    if(var == "TOTAL_RAN_VALUE")      return meuEsp.total_ran();
+    if(var == "TOTAL_RAN_VALUE")      return accessSys.total_ran();
 
-    if(var == "FLASH_SIZE_VALUE")     return meuEsp.flash_size();
+    if(var == "FLASH_SIZE_VALUE")     return accessSys.flash_size();
     
-    if(var == "MENOR_RAN_SIZE_VALUE") return meuEsp.menor_ran_size();
+    if(var == "MENOR_RAN_SIZE_VALUE") return accessSys.menor_ran_size();
 
-    if(var == "SKETCH_SIZE_VALUE")    return meuEsp.sketch_Size();
+    if(var == "SKETCH_SIZE_VALUE")    return accessSys.sketch_Size();
     
     // Para qualquer outro placeholder não mapeado
     return String("");
@@ -54,7 +54,7 @@ void startServer() {
     });
     
     server.on("/config_pinos", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "application/json", meuEsp.pinGPIO());
+        request->send(200, "application/json", accessSys.pinGPIO());
     });
 
     // Rota de Controle (JSON)
@@ -63,26 +63,83 @@ void startServer() {
         
         JsonDocument doc, config;
         deserializeJson(doc, data, len);
-        deserializeJson(config, meuEsp.pinGPIO());
+        deserializeJson(config, accessSys.pinGPIO());
 
-        int pino = doc["pino"];
-        int estado = doc["estado"];
+        int pin = doc["pin"];
+        int state = doc["state"];
         
     // Verifica se o número do pino existe em qualquer "valor" do JSON de configuração
-        bool pinoValido = false;
+        bool pinoValidation = false;
         for (JsonPair kv : config["gpios"].as<JsonObject>()) { 
-            if(kv.value().as<int>() == pino) { 
-                pinoValido = true; 
+            if(kv.value().as<int>() == pin) { 
+                pinoValidation = true; 
                 break; 
             } 
         }
-        if (pinoValido) {
-            digitalWrite(pino, estado);
-            Serial.printf("Acionado o Pino: %d com estado: %d\n", pino, estado);
+        if (pinoValidation) {
+            digitalWrite(pin, state);
+            accessSys.setPinState(pin, state);
+            Serial.printf("Acionado o Pino: %d com estado: %d\n", pin, state);
             request->send(200, "application/json", "{\"status\":\"ok\"}");
         } else {
             request->send(403, "application/json", "{\"status\":\"Pino não encontrado no módulo\"}");
         }
+    });
+    // --- ROTA: Mudar Modo (INPUT/OUTPUT) ---
+    server.on("/config_modo", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        JsonDocument doc;
+        deserializeJson(doc, data, len);
+
+        int pin = doc["pin"];
+        String mode = doc["mode"]; // "INPUT" ou "OUTPUT"
+
+        PinMode_t modeEnum = MODE_INPUT; // Valor padrão de segurança
+
+        if (mode == "OUTPUT") {
+            modeEnum = MODE_OUTPUT;
+            pinMode(pin, OUTPUT);
+        } else if (mode == "INPUT") {
+            modeEnum = MODE_INPUT;
+            pinMode(pin, INPUT);
+        } else if (mode == "INPUT_PULLUP") {
+            modeEnum = MODE_INPUT_PULLUP;
+            pinMode(pin, INPUT_PULLUP);
+        } else if (mode == "INPUT_PULLDOWN") {
+            modeEnum = MODE_INPUT_PULLDOWN;
+            // Tratamento específico para o GPIO 16 do ESP8266
+            if (pin == 16) pinMode(pin, INPUT_PULLDOWN_16);
+            else pinMode(pin, INPUT);
+        }
+        // 2. Persiste no LittleFS para o próximo boot
+        // Usamos o método que criamos: ele lê o WiFi, acha o pino e só muda o 'mode'
+        accessSys.setPinMode(pin, modeEnum);
+
+        Serial.printf("Pino %d alterado para modo: %s\n", pin, mode.c_str());
+        request->send(200, "application/json", "{\"status\":\"Modo atualizado\"}");
+    });
+
+    // --- ROTA: Definir Nível Lógico Inicial (HIGH/LOW) ---
+    server.on("/set_level", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        JsonDocument doc;
+        deserializeJson(doc, data, len);
+
+        int pin = doc["pin"];
+        int level = doc["level"]; // 0 ou 1
+         
+
+        // 1. Atualiza no LittleFS (Estado que ele deve assumir ao ligar)
+        // Buscamos o modo atual no FS primeiro ou passamos o que já sabemos
+        accessSys.setPinLevel(pin, level);
+
+        // 2. Aplica agora
+        digitalWrite(pin, level);
+
+        Serial.printf("Pino %d nível lógico padrão: %d\n", pin, level);
+        request->send(200, "application/json", "{\"status\":\"Nível gravado\"}");
     });
 
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -91,7 +148,7 @@ void startServer() {
         JsonDocument pinsDoc;
 
         // 2. Pegamos a String do seu método e transformamos em um objeto JSON usável
-        deserializeJson(pinsDoc, meuEsp.pinGPIO());
+        deserializeJson(pinsDoc, accessSys.pinGPIO());
         JsonObject gpios = pinsDoc["gpios"];
 
         // 3. Iteramos sobre cada par (Chave/Valor) dentro do objeto "gpios"

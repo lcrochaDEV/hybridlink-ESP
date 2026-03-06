@@ -3,6 +3,9 @@
 #include "servidorweb.h"
 
 #include "AccessControl.h"
+#include "Console.h"
+Console console;
+
 
 WirelessConnection wirelessConnection;
 
@@ -21,11 +24,14 @@ void setup() {
   wirelessConnection.accesspoint();
   startServer();   
   setupFS();
-  sysFS.factoryReset(); 
+  //sysFS.factoryReset(); 
   sysFS.returnObjectData();
 }
 
-void loop() {}
+void loop() {
+  //CONSOLE
+  console.consoleView();
+}
 
 void setupFS() {
   //Serial.begin(115200);

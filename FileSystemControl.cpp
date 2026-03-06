@@ -30,7 +30,35 @@ bool FileSystemControl::begin() {
     }
 
     Serial.println("LittleFS montado e pronto!");
+    syncHardwareWithDisk();
     return true;
+}
+void FileSystemControl::syncHardwareWithDisk() {
+    JsonDocument doc;
+    if (!loadConfig(doc) || !doc["pins"].is<JsonArray>()) return;
+
+    for (JsonObject p : doc["pins"].as<JsonArray>()) {
+        int pin   = p["pin"];
+        int mode  = p["mode"];
+        int level = p["level"];
+        int state = p["state"]; // Adicionado o estado salvo
+
+        if (mode != MODE_KEEP) {
+            #if defined(ESP8266)
+            if (mode == MODE_INPUT_PULLDOWN && pin == 16) pinMode(pin, INPUT_PULLDOWN_16);
+            else pinMode(pin, (uint8_t)mode);
+            #else
+            pinMode(pin, (uint8_t)mode);
+            #endif
+        }
+
+        if (mode == MODE_OUTPUT) {
+            // Se o state for válido (não for PIN_KEEP), usamos ele, senão usamos o level
+            int finalState = (level != PIN_KEEP) ? level : state;
+            digitalWrite(pin, finalState);
+        }
+    }
+    Serial.println("Hardware sincronizado (Mode/Level/State).");
 }
 void FileSystemControl::saveConfig(JsonDocument& doc) {
     File file = LittleFS.open(FILE_PATH, "w");
@@ -115,41 +143,53 @@ void FileSystemControl::returnObjectData() {
     }
 }
 
-void FileSystemControl::addPinConfig(int pin, String mode, String state) {
+void FileSystemControl::_addPinConfig(int pin, PinMode_t mode, int state, int level) {
     JsonDocument doc;
-    
-    // 1. O loadConfig garante que 'doc' seja o conteúdo atual ou {}
     loadConfig(doc);
 
-    // 2. Acesso seguro ao array "pins"
-    // Se a chave não existe, o .to<JsonArray>() a cria. 
-    // Se já existe, o .as<JsonArray>() permite adicionar sem limpar os antigos.
     JsonArray pins = doc["pins"].is<JsonArray>() ? 
                      doc["pins"].as<JsonArray>() : 
                      doc["pins"].to<JsonArray>();
 
+    JsonObject target;
     bool found = false;
+
     for (JsonObject p : pins) {
         if (p["pin"] == pin) {
-            p["mode"] = mode;
-            p["state"] = state;
+            target = p;
             found = true;
             break;
         }
     }
 
     if (!found) {
-        JsonObject pinObj = pins.add<JsonObject>();
-        pinObj["pin"] = pin;
-        pinObj["mode"] = mode;
-        pinObj["state"] = state;
+        target = pins.add<JsonObject>();
+        target["pin"] = pin;
+        target["mode"] = (int)MODE_INPUT; 
+        target["state"] = 0;
+        target["level"] = 0;
     }
 
-    // 3. Salva o documento completo (WiFi + todos os pinos)
+    // A lógica profissional de "Patch" (Só altera o que foi solicitado)
+    if (mode != MODE_KEEP)  target["mode"] = (int)mode;
+    if (state != PIN_KEEP)  target["state"] = state;
+    if (level != PIN_KEEP)  target["level"] = level;
+
     saveConfig(doc);
-    
-    Serial.printf("Pino %d processado. Total no arquivo: %d\n", pin, pins.size());
 }
+
+void FileSystemControl::setPinMode(int pin, PinMode_t mode) {
+    _addPinConfig(pin, mode, PIN_KEEP, PIN_KEEP);
+}
+
+void FileSystemControl::setPinLevel(int pin, int level) {
+    _addPinConfig(pin, MODE_KEEP, PIN_KEEP, level);
+}
+
+void FileSystemControl::setPinState(int pin, int state) {
+    _addPinConfig(pin, MODE_KEEP, state, PIN_KEEP);
+}
+
 // DELETA ARQUIVO DE CONFIGURAÇÕES
 void FileSystemControl::factoryReset() {
     if (LittleFS.exists(FILE_PATH)) {
@@ -166,9 +206,9 @@ void FileSystemControl::factoryReset() {
   "pins": [
     {
       "pin": 0,
-      "status": 0,
+      "state": 0,
       "mode": "OUTPUT",
-      "state": "LOW"
+      "level": "LOW"
     }
   ]
 }

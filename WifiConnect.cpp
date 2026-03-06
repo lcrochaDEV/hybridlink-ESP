@@ -70,6 +70,7 @@ bool WifiConnect::connect_status(){
         Serial.printf("Endereco IP: %s\n", WiFi.localIP().toString().c_str());
         Serial.printf("Endereco MAC: %s\n", WiFi.macAddress().c_str()); 
         Serial.printf("Canal Wi-Fi atual: %d\n", WiFi.channel()); 
+        Serial.println();
         return true; // Retorna TRUE, indicando sucesso.
     } else {
       Serial.println("\nWifi Desconectado!");

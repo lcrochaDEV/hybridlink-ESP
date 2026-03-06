@@ -4,10 +4,11 @@
 // HTML armazenado na Flash
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Nexus</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         /* Ajuste para tablets e celulares */
         @media (max-width: 768px) {
@@ -237,6 +238,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     </style>
 </head>
 <body>
+<body>
     <header>
         <div class="module">
             <div class="module-img">
@@ -275,9 +277,9 @@ const char index_html[] PROGMEM = R"rawliteral(
                     <table class="gpio-table">
                         <thead>
                             <tr>
-                                <th></th>
-                                <th>Modo</th>
-                                <th>Estado</th>
+                                <th>State</th>
+                                <th>Mode</th>
+                                <th>Level</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -293,7 +295,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                                 </td>
                                 <td>
                                     <label class="container-radio">
-                                        <input type="radio" name="mode_${pino}" value="OUTPUT" data-gpio="${pino}" class="mode-input" />
+                                        <input type="radio" name="mode_${pino}" value="OUTPUT" data-gpio="${pino}" class="mode-input" checked />
                                         <span class="label-text">OUTPUT</span>
                                     </label>
                               
@@ -319,7 +321,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                                         <span>HIGH</span>
                                     </label>
                                     <label class="container-radio">
-                                        <input type="radio" name="level_${pino}" value="0" data-gpio="${pino}" class="level-input" />
+                                        <input type="radio" name="level_${pino}" value="0" data-gpio="${pino}" class="level-input" checked />
                                         <span>LOW</span>
                                     </label>
 
@@ -361,16 +363,16 @@ const char index_html[] PROGMEM = R"rawliteral(
 
             if (target.classList.contains('switch-input')) {
                 // Liga/Desliga Geral
-                enviarComando('/controlar', { pino: parseInt(pin), estado: target.checked ? 1 : 0 });
+                enviarComando('/controlar', { pin: parseInt(pin), state: target.checked ? 1 : 0 });
                 console.log('seleção')
             } 
             else if (target.classList.contains('mode-input')) {
                 // Muda modo (INPUT/OUTPUT)
-                enviarComando('/config_modo', { pino: parseInt(pin), modo: target.value });
+                enviarComando('/config_modo', { pin: parseInt(pin), mode: target.value });
             }
             else if (target.classList.contains('level-input')) {
                 // Muda Nível Lógico (HIGH/LOW)
-                enviarComando('/set_level', { pino: parseInt(pin), nivel: parseInt(target.value) });
+                enviarComando('/set_level', { pin: parseInt(pin), level: parseInt(target.value) });
             }
         });
 
@@ -417,9 +419,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         window.addEventListener('DOMContentLoaded', verificarStatus);
     </script>
 </body>
+</body>
 </html>
-
-
 )rawliteral";
 
 #endif
