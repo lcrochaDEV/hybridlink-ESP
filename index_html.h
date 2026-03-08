@@ -267,13 +267,11 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
     <script>
 
-        let gpios = {"gpios":{"GPIO0":0,"GPIO2":2,"GPIO4":4,"GPIO5":5,"GPIO18":18,"GPIO19":19,"GPIO21":21,"GPIO22":22}}
         let html_form = (list) => {
-           
             return Object.keys(list).map(nome => {
                 let pino = list[nome];
                 return (`
-                <form id="action" method="GET">
+                <form id="form_pin_${pino}" class="form-gpio">
                     <table class="gpio-table">
                         <thead>
                             <tr>
@@ -288,7 +286,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                                     <div class="container">
                                         <label>${nome}</label>
                                         <label class="switch">
-                                            <input type="checkbox" name="gpio${pino}" data-gpio="${pino}" class="switch-input" />
+                                            <input type="checkbox" name="gpio_${pino}" data-gpio="${pino}" class="switch-input" />
                                             <span class="slider"></span>
                                         </label>
                                     </div>
@@ -335,8 +333,6 @@ const char index_html[] PROGMEM = R"rawliteral(
             }).join('');
         }
 
-        document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
-             
         // Função Universal de Envio (Fetch API)
         async function enviarComando(url, dados) {
             console.log(`Enviando para ${url}:`, dados);
@@ -368,15 +364,33 @@ const char index_html[] PROGMEM = R"rawliteral(
             } 
             else if (target.classList.contains('mode-input')) {
                 // Muda modo (INPUT/OUTPUT)
+                console.log(event)
                 enviarComando('/config_modo', { pin: parseInt(pin), mode: target.value });
             }
             else if (target.classList.contains('level-input')) {
                 // Muda Nível Lógico (HIGH/LOW)
-                enviarComando('/set_level', { pin: parseInt(pin), level: parseInt(target.value) });
+                enviarComando('/set_level', { pin: parseInt(pin), level:  parseInt(target.value) });
             }
         });
 
+        //TESTES DE PINOS
+        /*let gpios = {"gpios":{"GPIO0":0,"GPIO2":2}}
+        document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
 
+        let pinos = [
+                {
+                    pin: 0,
+                    mode: 2,
+                    state: 1,
+                    level: 0
+                },
+                {
+                    pin: 2,
+                    mode: 3,
+                    state: 0,
+                    level: 1
+                }
+            ]*/
         let carregarGpios = async () =>  {
             try {
                     // Busca o JSON da rota que você criou no C++
@@ -394,26 +408,37 @@ const char index_html[] PROGMEM = R"rawliteral(
             }
         window.addEventListener('DOMContentLoaded', carregarGpios);
 
-
-        //let pinos = { "pino0": 0, "pino2": 1, "pino4": 1, "pino5": 1, "pino18": 1, "pino19": 1, "pino21": 1, "pino22": 0  }
-
         let verificarStatus = async (event) =>  {
             try {
                 let response = await fetch('/status');
                 let data = await response.json();
-                console.log("Estados atuais:", data);
-                let list = document.querySelectorAll('.switch-input');
-            
-                Object.keys(data).forEach((chave, index) => {
-                    // 1. Sincroniza o Switch (ON/OFF)
-                    if(!!data[chave]) list[index].checked = true;
+                                console.log("Estados atuais:", data);
+
+                let modelist = [... document.forms];
+      
+                modelist.forEach((form, i) => {
+                    let pin = data[i].pin;
+                    let state = data[i].state;
+                    let mode = data[i].mode;
+                    let level = data[i].level;
+                    
+                    let switchInput = document.querySelector(`input[name="gpio_${pin}"][data-gpio="${pin}"]`);
+                    if (switchInput) switchInput.checked = state;
+                    
                     // 2. Sincroniza o Modo (Radio)
+                    let modes = mode ===  0 && "INPUT" || mode === 1 && "OUTPUT" || mode === 2 && "INPUT_PULLUP" || mode === 3 && "INPUT_PULLDOWN";
+                    let modeInput = form.querySelector(`input[value="${modes}"][data-gpio="${pin}"]`);
+                    if (modeInput) modeInput.checked = true;
+                    
                     // 3. Sincroniza o Nível Lógico (HIGH/LOW)
+                    let levelInput = form.querySelector(`input[value="${level}"][data-gpio="${pin}"]`);
+                    console.log(levelInput)
+                    if (levelInput) levelInput.checked = true;
                 });
+               
             } catch (err) {
                 console.error("Erro ao ler estados:", err);
             }
-            //console.log(list[0].checked = true)
         } 
         
         window.addEventListener('DOMContentLoaded', verificarStatus);

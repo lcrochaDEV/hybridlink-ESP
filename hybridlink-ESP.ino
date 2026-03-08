@@ -24,7 +24,7 @@ void setup() {
   wirelessConnection.accesspoint();
   startServer();   
   setupFS();
-  //sysFS.factoryReset(); 
+  sysFS.factoryReset(); 
   sysFS.returnObjectData();
 }
 

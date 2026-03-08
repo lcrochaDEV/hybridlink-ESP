@@ -143,29 +143,26 @@ void startServer() {
     });
 
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        // 1. Criamos os documentos JSON
-        JsonDocument statusDoc; 
-        JsonDocument pinsDoc;
+        JsonDocument doc;
 
-        // 2. Pegamos a String do seu método e transformamos em um objeto JSON usável
-        deserializeJson(pinsDoc, accessSys.pinGPIO());
-        JsonObject gpios = pinsDoc["gpios"];
+        // 1. Lemos o arquivo de configuração (A nossa "Fonte da Verdade")
+        if (accessSys.loadConfig(doc) && doc["pins"].is<JsonArray>()) {
+            
+            // 2. Opcional: Atualiza o 'state' no JSON com a leitura real se for OUTPUT
+            for (JsonObject p : doc["pins"].as<JsonArray>()) {
+                int pin = p["pin"];
+                // Se o pino estiver flutuando, o 'state' salvo no disco é mais confiável que o digitalRead
+                p["state"] = digitalRead(pin); 
+            }
 
-        // 3. Iteramos sobre cada par (Chave/Valor) dentro do objeto "gpios"
-        for (JsonPair kv : gpios) {
-            const char* gpioName = kv.key().c_str(); // Ex: "GPIO18"
-            int pinNumber = kv.value().as<int>();    // Ex: 18
-
-            // 4. Lemos o estado do pino fisicamente e adicionamos ao JSON de resposta
-            statusDoc[gpioName] = digitalRead(pinNumber);
+            String response;
+            // 3. Enviamos APENAS o array de pinos (contendo pin, mode, level e state)
+            serializeJson(doc["pins"], response);
+            request->send(200, "application/json", response);
+        } else {
+            request->send(200, "application/json", "[]");
         }
-
-        String response;
-        serializeJson(statusDoc, response);
-        
-        request->send(200, "application/json", response);
     });
-    
   // Inicia o Servidor 
   server.begin();
   Serial.println("Servidor HTTP Async Iniciado!");
