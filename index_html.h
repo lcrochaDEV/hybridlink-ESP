@@ -208,9 +208,25 @@ const char index_html[] PROGMEM = R"rawliteral(
             transform: translateX(30px); 
         }
         .container-radio {
+            background: rgba(61, 33, 107, 0.2);
+            padding: 5px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             cursor: pointer;
+        }
+        .container-radio:hover {
+            background: rgba(122, 0, 255, 0.3);
+            border-color: #7a00ff;
+        }
+        .container-radio input:checked + span {
+            color: #7a00ff;
+            text-shadow: 0 0 5px rgba(0, 255, 213, 0.336);
         }
         /* TABELA*/
         .gpio-table {
@@ -226,7 +242,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         .gpio-table td {
             padding: 10px;
             text-align: center;
-        }
+        }        
         .container-radio input {
             margin-right: 5px;
             margin-bottom: 3px;
@@ -234,7 +250,20 @@ const char index_html[] PROGMEM = R"rawliteral(
             height: 18px;
             accent-color: #2196F3; /* Cor do seletor */
         }
+        .td-link {
+            min-width: 120px;
+            padding: 10px;
+        }
 
+        .link-select {
+            width: 100%%;
+            background-color: #1a1a1a;
+            color: #00ffd5;
+            border: 1px solid #7a00ff;
+            border-radius: 4px;
+            padding: 5px;
+            outline: none;
+        }
     </style>
 </head>
 <body>
@@ -268,8 +297,17 @@ const char index_html[] PROGMEM = R"rawliteral(
     <script>
 
         let html_form = (list) => {
-            return Object.keys(list).map(nome => {
-                let pino = list[nome];
+            // Criamos uma lista de entradas [nome, pino] uma única vez
+            const gpiosEntry = Object.entries(list);
+
+            return gpiosEntry.map(([nome, pino]) => {
+                
+                // FILTRO: Cria as opções excluindo o pino da linha atual
+                const optionsHtml = gpiosEntry
+                    .filter(([n, p]) => p !== pino) // Remove a si mesmo da lista
+                    .map(([n, p]) => `<option value="${p}">${n}</option>`)
+                    .join('');
+
                 return (`
                 <form id="form_pin_${pino}" class="form-gpio">
                     <table class="gpio-table">
@@ -278,6 +316,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                                 <th>State</th>
                                 <th>Mode</th>
                                 <th>Level</th>
+                                <th>Vínculo Inteligente</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -296,24 +335,20 @@ const char index_html[] PROGMEM = R"rawliteral(
                                         <input type="radio" name="mode_${pino}" value="OUTPUT" data-gpio="${pino}" class="mode-input" checked />
                                         <span class="label-text">OUTPUT</span>
                                     </label>
-                              
                                     <label class="container-radio">
                                         <input type="radio" name="mode_${pino}" value="INPUT" data-gpio="${pino}" class="mode-input" />
                                         <span class="label-text">INPUT</span>
                                     </label>
-                          
                                     <label class="container-radio">
                                         <input type="radio" name="mode_${pino}" value="INPUT_PULLUP" data-gpio="${pino}" class="mode-input" />
-                                        <span class="label-text">INPUT_PULLUP</span>
+                                        <span class="label-text">PULLUP</span>
                                     </label>
-                           
                                     <label class="container-radio">
                                         <input type="radio" name="mode_${pino}" value="INPUT_PULLDOWN" data-gpio="${pino}" class="mode-input" />
-                                        <span class="label-text">INPUT_PULLDOWN</span>
+                                        <span class="label-text">PULLDOWN</span>
                                     </label>
                                 </td>
                                 <td>
-                                    
                                     <label class="container-radio">
                                         <input type="radio" name="level_${pino}" value="1" data-gpio="${pino}" class="level-input" />
                                         <span>HIGH</span>
@@ -322,16 +357,25 @@ const char index_html[] PROGMEM = R"rawliteral(
                                         <input type="radio" name="level_${pino}" value="0" data-gpio="${pino}" class="level-input" checked />
                                         <span>LOW</span>
                                     </label>
-
+                                </td>
+                                <td class="td-link">
+                                    <div class="link-box">
+                                        <span style="font-size: 10px; display: block; margin-bottom: 5px;"></span>
+                                        <select class="link-select" data-gpio="${pino}">
+                                            <option value="-1">NENHUM</option>
+                                            ${optionsHtml}
+                                        </select>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </form>
                 <span class="border"></span>
-                `)
+                `);
             }).join('');
         }
+            
 
         // Função Universal de Envio (Fetch API)
         async function enviarComando(url, dados) {
@@ -371,10 +415,24 @@ const char index_html[] PROGMEM = R"rawliteral(
                 // Muda Nível Lógico (HIGH/LOW)
                 enviarComando('/set_level', { pin: parseInt(pin), level:  parseInt(target.value) });
             }
+            else if(target.classList.contains('link-select')){
+                const pinOrigem = parseInt(target.dataset.gpio); // O pino da LINHA
+                const pinDestino = parseInt(target.value);      // O pino selecionado no SELECT
+                
+                // O vínculo só é ativo se o destino for diferente de -1 
+                // E, por segurança, diferente do próprio pino de origem
+                const active = (pinDestino !== -1 && pinDestino !== pinOrigem);
+
+                enviarComando('/config_link', { 
+                    pin: pinOrigem, 
+                    target: pinDestino, 
+                    active: active 
+                });
+            }
         });
 
         //TESTES DE PINOS
-        /*let gpios = {"gpios":{"GPIO0":0,"GPIO2":2}}
+        let gpios = {"gpios":{"GPIO0":0,"GPIO2":2}}
         document.querySelector('.conteiner-form').innerHTML = html_form({... gpios.gpios });
 
         let pinos = [
@@ -382,15 +440,17 @@ const char index_html[] PROGMEM = R"rawliteral(
                     pin: 0,
                     mode: 2,
                     state: 1,
-                    level: 0
+                    level: 0,
+                    vincularpin: 2
                 },
                 {
                     pin: 2,
                     mode: 3,
                     state: 0,
-                    level: 1
+                    level: 1,
+                    vincularpin: 0
                 }
-            ]*/
+            ]
         let carregarGpios = async () =>  {
             try {
                     // Busca o JSON da rota que você criou no C++
@@ -412,28 +472,37 @@ const char index_html[] PROGMEM = R"rawliteral(
             try {
                 let response = await fetch('/status');
                 let data = await response.json();
-                                console.log("Estados atuais:", data);
+                console.log("Estados atuais:", data);
 
-                let modelist = [... document.forms];
-      
-                modelist.forEach((form, i) => {
-                    let pin = data[i].pin;
-                    let state = data[i].state;
-                    let mode = data[i].mode;
-                    let level = data[i].level;
-                    
+                if (!Array.isArray(data)) return;
+                     
+                data.forEach((data) => {
+                    if (!data || data.pin === undefined) return;
+           
+                    let pin = data.pin;
+                    let state = data.state;
+                    let mode = data.mode;
+                    let level = data.level;
+                    let vincularpin = data.vincularpin;
+                          
                     let switchInput = document.querySelector(`input[name="gpio_${pin}"][data-gpio="${pin}"]`);
                     if (switchInput) switchInput.checked = state;
                     
                     // 2. Sincroniza o Modo (Radio)
                     let modes = mode ===  0 && "INPUT" || mode === 1 && "OUTPUT" || mode === 2 && "INPUT_PULLUP" || mode === 3 && "INPUT_PULLDOWN";
-                    let modeInput = form.querySelector(`input[value="${modes}"][data-gpio="${pin}"]`);
+                    let modeInput = document.querySelector(`input[value="${modes}"][data-gpio="${pin}"]`);
                     if (modeInput) modeInput.checked = true;
                     
                     // 3. Sincroniza o Nível Lógico (HIGH/LOW)
-                    let levelInput = form.querySelector(`input[value="${level}"][data-gpio="${pin}"]`);
-                    console.log(levelInput)
+                    let levelInput = document.querySelector(`input[value="${level}"][data-gpio="${pin}"]`);
                     if (levelInput) levelInput.checked = true;
+                    
+                    // Dentro do seu loop de sincronização
+                    let linkSelect = document.querySelector(`.link-select[data-gpio="${pin}"]`);
+                    if (linkSelect) {
+                        // Se não houver vínculo (ex: -1 ou undefined), volta para "NENHUM"
+                        linkSelect.value = (vincularpin !== undefined && vincularpin !== null) ? vincularpin.toString() : "-1";
+                    }
                 });
                
             } catch (err) {
@@ -442,8 +511,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         } 
         
         window.addEventListener('DOMContentLoaded', verificarStatus);
+
     </script>
-</body>
 </body>
 </html>
 )rawliteral";

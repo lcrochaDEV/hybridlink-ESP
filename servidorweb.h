@@ -163,6 +163,21 @@ void startServer() {
             request->send(200, "application/json", "[]");
         }
     });
+
+    server.on("/config_link", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        JsonDocument doc;
+        deserializeJson(doc, data, len);
+
+        int pin = doc["pin"];    // Ex: 2
+        int targetPin = doc["target"]; // Ex: 0
+        bool active = doc["active"];   // true/false
+
+        accessSys.setPinLink(pin, active ? targetPin : -1);
+
+        request->send(200, "application/json", "{\"status\":\"Vínculo atualizado\"}");
+    });
   // Inicia o Servidor 
   server.begin();
   Serial.println("Servidor HTTP Async Iniciado!");

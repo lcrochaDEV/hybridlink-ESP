@@ -143,7 +143,7 @@ void FileSystemControl::returnObjectData() {
     }
 }
 
-void FileSystemControl::_addPinConfig(int pin, PinMode_t mode, int state, int level) {
+void FileSystemControl::_addPinConfig(int pin, PinMode_t mode, int state, int level, int vincularpin) {
     JsonDocument doc;
     loadConfig(doc);
 
@@ -165,15 +165,17 @@ void FileSystemControl::_addPinConfig(int pin, PinMode_t mode, int state, int le
     if (!found) {
         target = pins.add<JsonObject>();
         target["pin"] = pin;
-        target["mode"] = (int)MODE_INPUT; 
+        target["mode"] = (int)MODE_OUTPUT; 
         target["state"] = 0;
         target["level"] = 0;
+        target["vincularpin"] = -1; // Valor padrão: sem vínculo
     }
 
     // A lógica profissional de "Patch" (Só altera o que foi solicitado)
     if (mode != MODE_KEEP)  target["mode"] = (int)mode;
     if (state != PIN_KEEP)  target["state"] = state;
     if (level != PIN_KEEP)  target["level"] = level;
+    if (vincularpin != PIN_KEEP) target["vincularpin"] = vincularpin; // Grava o novo vínculo
 
     saveConfig(doc);
 }
@@ -188,6 +190,11 @@ void FileSystemControl::setPinLevel(int pin, int level) {
 
 void FileSystemControl::setPinState(int pin, int state) {
     _addPinConfig(pin, MODE_KEEP, state, PIN_KEEP);
+}
+
+void FileSystemControl::setPinLink(int pin, int vincularpin) {
+    // Chama o addPinConfig mantendo tudo igual e alterando apenas o vínculo
+    _addPinConfig(pin, MODE_KEEP, PIN_KEEP, PIN_KEEP, vincularpin);
 }
 
 // DELETA ARQUIVO DE CONFIGURAÇÕES

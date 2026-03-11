@@ -23,7 +23,7 @@ class FileSystemControl {
   private:
     String _ssid;
     String _password;
-    void _addPinConfig(int pin = 0, PinMode_t mode = MODE_OUTPUT, int state = 0, int level = 0);
+    void _addPinConfig(int pin = 0, PinMode_t mode = MODE_OUTPUT, int state = 0, int level = 0, int vincularpin = -1);
 
   public:
     // Construtor
@@ -40,6 +40,7 @@ class FileSystemControl {
     void setPinMode(int pin, PinMode_t mode);
     void setPinLevel(int pin, int level);
     void setPinState(int pin, int state);
+    void setPinLink(int pin, int vincularpin);
     // Método principal para persistir as credenciais da classe
     bool credentials();
     void returnObjectData();
