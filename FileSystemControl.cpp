@@ -197,6 +197,23 @@ void FileSystemControl::setPinLink(int pin, int vincularpin) {
     _addPinConfig(pin, MODE_KEEP, PIN_KEEP, PIN_KEEP, vincularpin);
 }
 
+// MANIPULAÇÃO FÍSICA DO MODULO
+int FileSystemControl::getLinkedPin(int originPin) {
+    JsonDocument doc;
+    if (!loadConfig(doc)) return -1;
+
+    if (doc["pins"].is<JsonArray>()) {
+        JsonArray pins = doc["pins"].as<JsonArray>();
+        for (JsonObject p : pins) {
+            // "Me dê o pino que está vinculado ao pino de origem X"
+            if (p.containsKey("vincularpin") && p["vincularpin"].as<int>() == originPin) {
+                return p["pin"].as<int>();
+            }
+        }
+    }
+    return -1; 
+}
+
 // DELETA ARQUIVO DE CONFIGURAÇÕES
 void FileSystemControl::factoryReset() {
     if (LittleFS.exists(FILE_PATH)) {

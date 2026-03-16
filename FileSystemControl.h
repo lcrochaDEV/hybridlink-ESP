@@ -44,9 +44,8 @@ class FileSystemControl {
     // Método principal para persistir as credenciais da classe
     bool credentials();
     void returnObjectData();
-    void factoryReset(); // DELETA ARQUIVO DE CONFIGURAÇÕES
-
-    
+    int getLinkedPin(int originPin);
+    void factoryReset(); // DELETA ARQUIVO DE CONFIGURAÇÕES   
 };
 
 #endif
