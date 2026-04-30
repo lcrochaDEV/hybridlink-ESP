@@ -18,6 +18,12 @@ enum PinMode_t {
 };
 
 #define PIN_KEEP -1
+#define LINK_KEEP -99
+
+struct PinLink {
+    int master;
+    int slave;
+};
 
 class FileSystemControl {
   private:
@@ -45,6 +51,7 @@ class FileSystemControl {
     bool credentials();
     void returnObjectData();
     int getLinkedPin(int originPin);
+    void runMirroring();
     void factoryReset(); // DELETA ARQUIVO DE CONFIGURAÇÕES   
 };
 

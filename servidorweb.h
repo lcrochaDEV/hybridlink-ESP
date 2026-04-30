@@ -77,8 +77,13 @@ void startServer() {
             } 
         }
         if (pinoValidation) {
+            // AÇÃO 1: Atualiza o arquivo JSON e o mapa de Mirroring em RAM
+            accessSys.setPinState(pin, state); 
+            // AÇÃO 2: Aplica fisicamente no pino mestre
             digitalWrite(pin, state);
-            accessSys.setPinState(pin, state);
+            // AÇÃO 3: Força o espelhamento agora (faz os escravos seguirem o mestre)
+            accessSys.runMirroring();
+        
             Serial.printf("Acionado o Pino: %d com estado: %d\n", pin, state);
             request->send(200, "application/json", "{\"status\":\"ok\"}");
         } else {

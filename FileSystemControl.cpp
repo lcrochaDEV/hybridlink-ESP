@@ -6,7 +6,10 @@
 FileSystemControl::FileSystemControl(const char* ssid, const char* password)
      : _ssid(ssid ? ssid : ""), _password(password ? password : "") {
   }
-// Inicializa o LittleFS (Essencial para resolver o erro de partição)
+
+/**
+ * @brief Inicializa o LittleFS (Essencial para resolver o erro de partição)
+ */
 bool FileSystemControl::begin() {
     Serial.println("\n--- SISTEMA DE ARQUIVOS ---");
     
@@ -33,6 +36,10 @@ bool FileSystemControl::begin() {
     syncHardwareWithDisk();
     return true;
 }
+
+/**
+ * @brief Garante que os estados físicos dos pinos correspondam ao JSON no boot.
+ */
 void FileSystemControl::syncHardwareWithDisk() {
     JsonDocument doc;
     if (!loadConfig(doc) || !doc["pins"].is<JsonArray>()) return;
@@ -60,6 +67,10 @@ void FileSystemControl::syncHardwareWithDisk() {
     }
     Serial.println("Hardware sincronizado (Mode/Level/State).");
 }
+
+/**
+ * @brief Salva o JSON da memória para o disco.
+ */
 void FileSystemControl::saveConfig(JsonDocument& doc) {
     File file = LittleFS.open(FILE_PATH, "w");
     if (!file) { 
@@ -76,6 +87,9 @@ void FileSystemControl::saveConfig(JsonDocument& doc) {
     Serial.println("Configuração salva com sucesso!");
 }
 
+/**
+ * @brief Carrega o JSON do disco para a memória.
+ */
 bool FileSystemControl::loadConfig(JsonDocument& doc) {
     if (!LittleFS.exists(FILE_PATH)) {
         doc.to<JsonObject>();
@@ -175,29 +189,35 @@ void FileSystemControl::_addPinConfig(int pin, PinMode_t mode, int state, int le
     if (mode != MODE_KEEP)  target["mode"] = (int)mode;
     if (state != PIN_KEEP)  target["state"] = state;
     if (level != PIN_KEEP)  target["level"] = level;
-    if (vincularpin != PIN_KEEP) target["vincularpin"] = vincularpin; // Grava o novo vínculo
+    if (vincularpin != LINK_KEEP) target["vincularpin"] = vincularpin; // Grava o novo vínculo
 
     saveConfig(doc);
 }
 
 void FileSystemControl::setPinMode(int pin, PinMode_t mode) {
-    _addPinConfig(pin, mode, PIN_KEEP, PIN_KEEP);
+    _addPinConfig(pin, mode, PIN_KEEP, PIN_KEEP, LINK_KEEP);
 }
 
 void FileSystemControl::setPinLevel(int pin, int level) {
-    _addPinConfig(pin, MODE_KEEP, PIN_KEEP, level);
+    _addPinConfig(pin, MODE_KEEP, PIN_KEEP, level, LINK_KEEP);
 }
 
 void FileSystemControl::setPinState(int pin, int state) {
-    _addPinConfig(pin, MODE_KEEP, state, PIN_KEEP);
+    _addPinConfig(pin, MODE_KEEP, state, PIN_KEEP, LINK_KEEP);
 }
 
+/**
+ * @brief Define o vínculo de espelhamento entre dois pinos no JSON.
+ */
 void FileSystemControl::setPinLink(int pin, int vincularpin) {
     // Chama o addPinConfig mantendo tudo igual e alterando apenas o vínculo
     _addPinConfig(pin, MODE_KEEP, PIN_KEEP, PIN_KEEP, vincularpin);
 }
 
-// MANIPULAÇÃO FÍSICA DO MODULO
+/**
+ * @brief Busca no JSON qual pino de saída está vinculado a um pino de origem.
+    MANIPULAÇÃO FÍSICA DO MODULO 
+ */
 int FileSystemControl::getLinkedPin(int originPin) {
     JsonDocument doc;
     if (!loadConfig(doc)) return -1;
@@ -213,6 +233,50 @@ int FileSystemControl::getLinkedPin(int originPin) {
     }
     return -1; 
 }
+void FileSystemControl::runMirroring() {
+    // 1. Controle de tempo para não sobrecarregar o processador
+    static unsigned long lastCheck = 0;
+    if (millis() - lastCheck < 50) return; 
+    lastCheck = millis();
+
+    // 2. Carrega a configuração atual do arquivo
+    JsonDocument doc;
+    if (!loadConfig(doc) || !doc["pins"].is<JsonArray>()) return;
+    JsonArray pins = doc["pins"].as<JsonArray>();
+
+    bool mudancaDetectada = false;
+
+    // 3. Primeira Varredura: Identificar quem tem vínculo (Escravos)
+    for (JsonObject pinoEscravo : pins) {
+        int vPin = pinoEscravo.containsKey("vincularpin") ? pinoEscravo["vincularpin"].as<int>() : -1;
+
+        if (vPin != -1) {
+            // 4. Segunda Varredura: Achar o estado do Mestre no objeto
+            for (JsonObject pinoMestre : pins) {
+                if (pinoMestre["pin"] == vPin) {
+                    int estadoMestre = pinoMestre["state"];
+                    int estadoAtualEscravo = pinoEscravo["state"];
+
+                    // 5. Sincroniza o Objeto: Se o estado no JSON estiver diferente, atualiza
+                    if (estadoAtualEscravo != estadoMestre) {
+                        pinoEscravo["state"] = estadoMestre;
+                        mudancaDetectada = true; // Marca que o JSON mudou na RAM
+                    }
+
+                    // 6. Sincroniza o Hardware: Aplica o estado físico no pino escravo
+                    digitalWrite(pinoEscravo["pin"].as<int>(), estadoMestre);
+                    break; 
+                }
+            }
+        }
+    }
+
+    // 7. Persistência: Se o estado de algum escravo mudou no objeto, salvamos no disco
+    if (mudancaDetectada) {
+        saveConfig(doc);
+        Serial.println("Mirroring: Estados sincronizados no JSON e salvos.");
+    }
+}
 
 // DELETA ARQUIVO DE CONFIGURAÇÕES
 void FileSystemControl::factoryReset() {
@@ -222,6 +286,7 @@ void FileSystemControl::factoryReset() {
         ESP.restart(); // Reinicia para aplicar o estado inicial
     }
 }
+
 
 /*
 {
