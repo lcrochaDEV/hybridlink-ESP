@@ -53,6 +53,7 @@ class FileSystemControl {
     int getLinkedPin(int originPin);
     void runMirroring();
     void factoryReset(); // DELETA ARQUIVO DE CONFIGURAÇÕES   
+    bool saveMqttFullConfig(JsonObject newConfig); //MQTT SAVE JSON
 };
 
 #endif

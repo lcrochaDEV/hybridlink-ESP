@@ -14,7 +14,7 @@ class Console: public AccessControl {
     void consoleView();
 
   private:
-    const char* consoleText;
+    const char* _consoleText;
     void commands_envio(const String& consoleText);
 };
  

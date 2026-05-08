@@ -4,7 +4,7 @@
 
 #include "AccessControl.h"
 #include "Console.h"
-Console console;
+Console console = Console("Mochi> ");
 
 
 WirelessConnection wirelessConnection;
@@ -24,8 +24,9 @@ void setup() {
   wirelessConnection.accesspoint();
   startServer();   
   setupFS();
+  console.helloWord();
   //sysFS.factoryReset();
-  sysFS.returnObjectData();
+  //sysFS.returnObjectData();
 }
 
 void loop() {

@@ -1,14 +1,16 @@
 #include "Console.h"
 
 Console::Console(const char* consoleText) 
-  : AccessControl(), consoleText(consoleText) 
+  : AccessControl(), _consoleText(consoleText) 
 {}
 
 void Console::helloWord(const char* consoleText) {
   // Se o argumento 'text' for nulo, usamos o 'consoleText' da classe
-  const char* msg = (consoleText != nullptr) ? consoleText : this->consoleText;
+  const char* msg = (consoleText != nullptr) ? consoleText : _consoleText;
   
+  if (_consoleText) return menssageViewMsg(_consoleText);
   if (msg != nullptr) menssageViewMsg(msg);
+  
 }
 
 void Console::menssageViewMsg(const char* consoleText) {

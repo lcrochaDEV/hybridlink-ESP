@@ -15,7 +15,15 @@
 #include "index_html.h"
 
 #include "AccessControl.h"
+#include "EspMqtt.h"
+
+#include "UUID.h"
+
+UUID uuid;
+
 AccessControl accessSys; 
+
+EspMqtt mqttService;
 
 // Cria o objeto Servidor na porta 80 (porta HTTP padrão)
 AsyncWebServer server(80);
@@ -150,22 +158,35 @@ void startServer() {
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
         JsonDocument doc;
 
-        // 1. Lemos o arquivo de configuração (A nossa "Fonte da Verdade")
-        if (accessSys.loadConfig(doc) && doc["pins"].is<JsonArray>()) {
+        // Tenta carregar a configuração do LittleFS
+        if (accessSys.loadConfig(doc)) {
             
-            // 2. Opcional: Atualiza o 'state' no JSON com a leitura real se for OUTPUT
-            for (JsonObject p : doc["pins"].as<JsonArray>()) {
-                int pin = p["pin"];
-                // Se o pino estiver flutuando, o 'state' salvo no disco é mais confiável que o digitalRead
-                p["state"] = digitalRead(pin); 
+            // 1. Sincronização Dinâmica: Atualiza os estados reais dos pinos antes de enviar ao Front
+            if(doc["pins"].is<JsonArray>()){
+                for (JsonObject p : doc["pins"].as<JsonArray>()) {
+                    int pinNum = p["pin"];
+                    // Lê o estado físico atual do hardware
+                    p["state"] = digitalRead(pinNum); 
+                }
+            }
+
+            if (doc["mqtt"].is<JsonArray>()) {
+            // Isso cria uma "cópia de referência" no JSON. 
+            // O Front receberá tanto "mqtt" quanto "mqtt_profiles" (redundância segura)
+            // ou você pode simplesmente garantir que "mqtt" já é o array.
+            doc["mqtt_profiles"] = doc["mqtt"]; 
+            } else {
+                // Garante que o front sempre receba um array, mesmo vazio
+                doc.to<JsonObject>()["mqtt_profiles"] = doc.createNestedArray("mqtt");
             }
 
             String response;
-            // 3. Enviamos APENAS o array de pinos (contendo pin, mode, level e state)
-            serializeJson(doc["pins"], response);
+            serializeJson(doc, response);
             request->send(200, "application/json", response);
+            
         } else {
-            request->send(200, "application/json", "[]");
+            // Se falhar ao carregar o arquivo (ex: primeiro boot), envia um objeto básico estruturado
+            request->send(200, "application/json", "{\"pins\":[],\"mqtt\":[]}");
         }
     });
 
@@ -183,6 +204,61 @@ void startServer() {
 
         request->send(200, "application/json", "{\"status\":\"Vínculo atualizado\"}");
     });
+
+    server.on("/config_mqtt", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        static std::vector<uint8_t> buffer;
+        if (index == 0) { buffer.clear(); buffer.reserve(total); }
+        buffer.insert(buffer.end(), data, data + len);
+
+        if (index + len < total) return; 
+
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, buffer.data(), buffer.size());
+        std::vector<uint8_t>().swap(buffer); // Libera RAM imediatamente
+
+        if (error) return request->send(400);
+
+        // 1. Geração de UUID consistente
+        if (!doc.containsKey("uuid")) {
+            uuid.generate();
+            doc["uuid"] = (char*)uuid.toCharArray(); 
+        }
+
+        // 2. Validação de campo obrigatório
+        if (doc.containsKey("broker")) {
+            
+            // EXECUÇÃO ÚNICA: Tenta salvar e verifica o retorno booleano
+            if (accessSys.saveMqttFullConfig(doc.as<JsonObject>())) {
+                
+                // Se salvou, atualiza o serviço ativo imediatamente
+                if (doc["active"] | false) {
+                    mqttService.updateConfig(
+                        doc["broker"] | "", 
+                        doc["port"]   | 1883, 
+                        doc["topic"]  | "", 
+                        doc["user"]   | "", 
+                        doc["passw"]  | ""
+                    );
+                    Serial.println(F("Serviço MQTT atualizado: Perfil Ativo."));
+                } else {
+                    Serial.println(F("Perfil salvo em background (Inativo)."));
+                }
+                
+                // Resposta JSON profissional de sucesso
+                String responseUUID = doc["uuid"].as<String>();
+                request->send(200, "application/json", "{\"status\":\"success\",\"uuid\":\"" + responseUUID + "\"}");
+                
+            } else {
+                // Se cair aqui, ou o limite de 10 perfis estourou ou é duplicado
+                request->send(409, "application/json", "{\"status\":\"error\",\"message\":\"Conflito: IP/Topico ja cadastrado ou limite atingido\"}");
+            }
+        } else {
+            request->send(422, "application/json", "{\"status\":\"error\",\"message\":\"Falta o campo broker\"}");
+        }
+    });
+
   // Inicia o Servidor 
   server.begin();
   Serial.println("Servidor HTTP Async Iniciado!");

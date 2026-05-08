@@ -12,9 +12,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <style>
         /* Ajuste para tablets e celulares */
         @media (max-width: 768px) {
-            header {
-                padding: 10px;
-            }
+            .title_header { padding: 15px; }
 
             .module {
                 flex-direction: column; /* Empilha a imagem e os dados */
@@ -67,6 +65,37 @@ const char index_html[] PROGMEM = R"rawliteral(
             color: #fff; 
         }
         header { background-color: #3d216b; }
+        
+        section {
+            display: flex;
+            justify-content: flex-start;
+        }
+        /* Remove as bolinhas da lista e alinha os itens */
+        .menu-lista {
+            list-style: none;
+            display: flex;
+            gap: 20px;
+            padding: 0;
+            background-color: var( --primary-color);
+            padding: 1rem;
+        }
+
+        /* Estilo para os links */
+        .menu-lista a {
+            text-decoration: none;
+            color: #ffffff;
+            font-family: sans-serif;
+            font-weight: bold;
+        }
+
+        /* Estilo específico para a classe MQTT */
+        .mqtt {
+            color: #0088cc; /* Cor azul comum em tecnologia */
+        }
+
+        .mqtt:hover {
+            text-decoration: underline;
+        }
         .module {
             display: flex;
             justify-content: flex-start;
@@ -234,6 +263,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             border-radius: 8px;
         }
+        .gpio-table tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
         .gpio-table th {
             padding: 5px;
             text-align: center;
@@ -264,6 +296,86 @@ const char index_html[] PROGMEM = R"rawliteral(
             padding: 5px;
             outline: none;
         }
+
+        /*MQTT DIV*/
+        :root {
+            --primary-color: #7a00ff;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --border-color: #334155;
+        }
+        
+        .nexusDialog {padding: 0; background: none; border: none;}
+
+        /* Container principal com title_header e Section lado a lado */
+        .config-container { 
+            background: var(--card-bg); 
+            display: flex; 
+            flex-direction: row; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); 
+            width: 100%%; 
+            max-width: 850px; 
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Ajuste do title_header (Lado Esquerdo) */
+        .title_header {
+            background-color: var(--primary-color);
+            padding: 2.5rem;
+            width: 35%%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .title_header h2 { margin-top: 0; font-size: 1.5rem; color: var(--text-color);}
+        .title_header p {color: var(--text-color);}
+
+        /* Ajuste da Section (Lado Direito) */
+        .container_mqtt {
+            padding: 2.5rem;
+            width: 65%%;
+        }
+        
+        .form-group { margin-bottom: 1.2rem; }
+        
+        label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; color: #94a3b8; }
+        
+        input[type="text"], input[type="password"], input[type="number"], select {
+            width: 100%%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; 
+            box-sizing: border-box; font-size: 1rem; background-color: #0f172a; color: white;
+        }
+
+        .row { display: grid; grid-template-columns: 3fr 1fr; gap: 10px; }
+
+        .checkbox-group { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .checkbox-group input { width: auto; }
+
+        .btn-save {
+            width: 100%%; background-color: var(--primary-color); color: white; border: none; padding: 12px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; transition: filter 0.3s;
+        }
+
+        .btn-save:hover { filter: brightness(1.2); }
+
+        .security-note { 
+            font-size: 0.8rem; color: #64748b; margin-top: 1rem; 
+            background: rgba(15, 23, 42, 0.5); padding: 10px; border-left: 4px solid var(--primary-color); 
+        }
+        .btn-close {
+            width: 100%%; background-color: #f436b5; color: white; border: none; padding: 12px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; transition: filter 0.3s;
+            position: relative; top: 20px;
+        }
+        /* Responsividade para Mobile */
+        @media (max-width: 768px) {
+            .config-container { flex-direction: column; }
+            .title_header, .container_mqtt { width: 100%%; padding: 1.5rem; }
+        }
+
     </style>
 </head>
 <body>
@@ -287,14 +399,142 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
         </div>
     </header>
-    <div class="container_painel coluna">
-        <h1>Painel Nexus</h1>
-        <h3>%MODULE_VALUE%</h3>
-        <div class="conteiner-form">
-
+<nav>
+  <ul class="menu-lista">
+    <li><a href="#" class="mqtt">MQTT</a></li>
+  </ul>
+</nav>
+    <section>
+        <div class="container_painel coluna">
+            <h1>Painel Nexus</h1>
+            <h3>%MODULE_VALUE%</h3>
+            <div class="conteiner-form"></div>
         </div>
-    </div>
+        <!--SENDO CHAMADO POR JS-->
+
+    </section>
     <script>
+
+        document.querySelector('.mqtt').addEventListener('click', () => {
+            if (!document.querySelector('.nexusDialog')) {
+                document.body.insertAdjacentHTML('beforeend', mqqt_fotm());
+                
+                // Adiciona o evento de fechar ao clicar fora (Backdrop)
+                const dialog = document.querySelector('.nexusDialog');
+                dialog.addEventListener('click', (e) => {
+                    if (e.target === dialog) closeMqttDialog();
+                });
+            }
+            document.querySelector('.nexusDialog').showModal();
+        })
+
+        // Função para fechar e remover (limpar memória do navegador)
+        function closeMqttDialog() {
+            const dialog = document.querySelector('.nexusDialog');
+            if (dialog) {
+                dialog.close();
+                // Opcional: remover do DOM para economizar memória
+                // dialog.remove(); 
+            }
+        }
+        // Lógica de salvamento integrada ao seu ecossistema (MQTT/ESP32)
+        async function saveMqttConfig() {
+            const btn = document.querySelector('.btn-save');
+            const formData = {
+                broker: document.getElementById('broker')?.value || "",
+                port: parseInt(document.getElementById('port')?.value || 1883),
+                clientId: document.getElementById('clientId')?.value || "ESP32_Nexus",
+                user: document.getElementById('user')?.value || "",
+                passw: document.getElementById('passw')?.value || "",
+                topic: document.getElementById('baseTopic')?.value || "", 
+                ssl: document.getElementById('useSsl')?.checked || false,
+                qos: parseInt(document.getElementById('qos')?.value || 0) // 0, 1 ou 2
+            };
+
+            btn.innerText = "SINCRONIZANDO...";
+            
+            try {
+                // Envio para o seu backend/ESP32
+                const response = await fetch('/config_mqtt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if(response.ok) {
+                    alert("Configuração MQTT atualizada com sucesso!");
+                    closeMqttDialog();
+                }
+            } catch (err) {
+                console.error("Falha ao salvar:", err);
+            } finally {
+                btn.innerText = "Salvar no ESP32";
+            }
+        }
+        let mqqt_fotm = () => {
+            return (`
+                <dialog class="nexusDialog">
+                    <div class="config-container">
+                        <div class="title_header">
+                            <h2>🔒 MQTT</h2>
+                            <p style="font-size: 0.9rem; opacity: 0.9;">Configure os parâmetros de conexão para garantir a comunicação segura do seu dispositivo.</p>
+                    </div>
+
+                    <div class="container_mqtt">
+                        <form id="mqtt-form">
+                            <div class="form-group">
+                                <label for="broker">Broker (Endereço do Servidor)</label>
+                                <div class="row">
+                                    <input type="text" id="broker" placeholder="ex: ://meubroker.com">
+                                    <input type="number" id="port" placeholder="1883" value="1883">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="clientId">Client ID (Identificador Único)</label>
+                                <input type="text" id="clientId" placeholder="ESP32_Sala_01">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="user">Usuário (Obrigatório para segurança)</label>
+                                <input type="text" id="user" placeholder="Digite o usuário">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="pass">Senha</label>
+                                <input type="password" id="passw" placeholder="••••••••">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="baseTopic">Tópico Base (Prefixo)</label>
+                                <input type="text" id="baseTopic" placeholder="minhacasa/dispositivo1/">
+                            </div>
+
+                            <div class="form-group checkbox-group">
+                                <input type="checkbox" id="useSsl" checked>
+                                <label for="useSsl">Usar conexão segura (TLS/SSL)</label>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="qos">Qualidade de Serviço (QoS)</label>
+                                <select id="qos">
+                                    <option value="0">0 - No máximo uma vez (Rápido)</option>
+                                    <option value="1" selected>1 - Pelo menos uma vez (Confiável)</option>
+                                    <option value="2">2 - Exatamente uma vez (Crítico)</option>
+                                </select>
+                            </div>
+
+                            <button type="button" class="btn-save" onclick="saveMqttConfig()">Salvar Configuração</button>
+                        </form>
+
+                        <div class="security-note">
+                            <strong>Dica de Segurança:</strong> Nunca use o broker sem senha em redes públicas. Para WebSockets (HTML), certifique-se de que o broker suporta conexões <code>wss://</code>.
+                        </div>
+                        <button class="btn-close" onclick="closeMqttDialog()">CANCELAR</button>
+                    </div>
+                </dialog>
+            `)
+        }
 
         let html_form = (list) => {
             // Criamos uma lista de entradas [nome, pino] uma única vez
@@ -379,23 +619,33 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         // Função Universal de Envio (Fetch API)
         async function enviarComando(url, dados) {
-            console.log(`Enviando para ${url}:`, dados);
-            
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' }, // Corrigido conforme análise
                     body: JSON.stringify(dados)
                 });
-
-                if (!response.ok) throw new Error('Erro na resposta do servidor');
-                
-                console.log("Sucesso!");
+                console.log(`Resposta de ${url}:`, response.status);
             } catch (err) {
-                console.error("Falha ao enviar comando:", err);
-                alert("Erro ao conectar com o dispositivo.");
+                console.error("Falha na requisição:", err);
             }
         }
+
+        // --- Seu Debounce Manual ---
+        let timeoutEnvio;
+        const debouncedEnvio = (url, dados) => {
+            clearTimeout(timeoutEnvio);
+            // Aguarda 100ms de silêncio antes de disparar para o ESP32
+            timeoutEnvio = setTimeout(() => enviarComando(url, dados), 100);
+        };
+
+        // --- Handler do Switch ---
+        function handleSwitch(pin, isChecked) {
+            const estado = isChecked ? 1 : 0;
+            // Em vez de chamar enviarComando direto, usamos o debounce
+            debouncedEnvio('/controlar', { pin: pin, state: estado })
+        }
+
         document.querySelector('.conteiner-form').addEventListener('change', (event) => {
             console.log(event)
             const target = event.target;

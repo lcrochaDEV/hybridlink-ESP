@@ -287,6 +287,53 @@ void FileSystemControl::factoryReset() {
     }
 }
 
+//MQTT SAVE JSON
+bool FileSystemControl::saveMqttFullConfig(JsonObject newConfig) {
+    JsonDocument doc;
+    loadConfig(doc);
+
+    JsonArray mqttArray;
+    if (doc["mqtt"].is<JsonArray>()) {
+        mqttArray = doc["mqtt"].as<JsonArray>();
+    } else {
+        mqttArray = doc["mqtt"].to<JsonArray>();
+    }
+
+    // 1. Validação de Duplicidade (IP + Tópico)
+    const char* newBroker = newConfig["broker"] | "";
+    const char* newTopic  = newConfig["topic"]  | "";
+
+    for (JsonObject existingMqtt : mqttArray) {
+        if (strcmp(newBroker, existingMqtt["broker"] | "") == 0 && 
+            strcmp(newTopic, existingMqtt["topic"] | "") == 0) {
+            return false; // Duplicado
+        }
+    }
+
+    // 2. Lógica de Ativação Única
+    // Se o novo perfil for definido como ativo, desativamos todos os outros
+    bool isNewActive = newConfig["active"] | false;
+    
+    if (isNewActive) {
+        for (JsonObject p : mqttArray) {
+            p["active"] = false;
+        }
+    }
+
+    // 3. Limite de segurança e adição
+    if (mqttArray.size() >= 10) return false;
+    
+    mqttArray.add(newConfig);
+
+    // 4. Persistência
+    File file = LittleFS.open("/config.json", "w");
+    if (file) {
+        serializeJson(doc, file);
+        file.close();
+        return true;
+    }
+    return false;
+}
 
 /*
 {
