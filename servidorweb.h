@@ -158,34 +158,31 @@ void startServer() {
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
         JsonDocument doc;
 
-        // Tenta carregar a configuração do LittleFS
+        // Se carregar o config e ele não for nulo
         if (accessSys.loadConfig(doc)) {
             
-            // 1. Sincronização Dinâmica: Atualiza os estados reais dos pinos antes de enviar ao Front
+            // Sincroniza pinos apenas se o array existir
             if(doc["pins"].is<JsonArray>()){
                 for (JsonObject p : doc["pins"].as<JsonArray>()) {
-                    int pinNum = p["pin"];
-                    // Lê o estado físico atual do hardware
-                    p["state"] = digitalRead(pinNum); 
+                    if (p.containsKey("pin")) {
+                        p["state"] = digitalRead(p["pin"].as<int>());
+                    }
                 }
+            } else {
+                doc["pins"].to<JsonArray>(); // Garante [] se não existir
             }
 
-            if (doc["mqtt"].is<JsonArray>()) {
-            // Isso cria uma "cópia de referência" no JSON. 
-            // O Front receberá tanto "mqtt" quanto "mqtt_profiles" (redundância segura)
-            // ou você pode simplesmente garantir que "mqtt" já é o array.
-            doc["mqtt_profiles"] = doc["mqtt"]; 
-            } else {
-                // Garante que o front sempre receba um array, mesmo vazio
-                doc.to<JsonObject>()["mqtt_profiles"] = doc.createNestedArray("mqtt");
+            // Garante que mqtt seja sempre um array, sem duplicar chaves
+            if (!doc["mqtt"].is<JsonArray>()) {
+                doc["mqtt"].to<JsonArray>();
             }
 
             String response;
             serializeJson(doc, response);
             request->send(200, "application/json", response);
-            
+
         } else {
-            // Se falhar ao carregar o arquivo (ex: primeiro boot), envia um objeto básico estruturado
+            // Fallback limpo: apenas o básico necessário
             request->send(200, "application/json", "{\"pins\":[],\"mqtt\":[]}");
         }
     });

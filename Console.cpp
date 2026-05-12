@@ -41,4 +41,5 @@ void Console::commands_envio(const String& command) {
   else if(command == "SHOWDATA") returnObjectData();
   
   else menssageViewMsg("Comando inexistente. Digite HELP.");
+  menssageViewMsg(_consoleText);
 }

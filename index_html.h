@@ -10,6 +10,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Nexus</title>
     <style>
+        @import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
         /* Ajuste para tablets e celulares */
         @media (max-width: 768px) {
             .title_header { padding: 15px; }
@@ -316,11 +317,10 @@ const char index_html[] PROGMEM = R"rawliteral(
             border-radius: 12px; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); 
             width: 100%%; 
-            max-width: 850px; 
             overflow: hidden;
             border: 1px solid var(--border-color);
         }
-
+        
         /* Ajuste do title_header (Lado Esquerdo) */
         .title_header {
             background-color: var(--primary-color);
@@ -329,6 +329,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             display: flex;
             flex-direction: column;
             justify-content: center;
+            max-width: 350px;
         }
 
         .title_header h2 { margin-top: 0; font-size: 1.5rem; color: var(--text-color);}
@@ -354,28 +355,53 @@ const char index_html[] PROGMEM = R"rawliteral(
         .checkbox-group { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
         .checkbox-group input { width: auto; }
 
+        .btn-mqtt {
+            display: flex;       /* Ativa o modo flexível */
+            gap: 10px;           /* Cria um espaço entre os botões */
+            align-items: center; /* Alinha verticalmente se tiverem alturas diferentes */
+            margin-top: 20px;    
+        }
         .btn-save {
             width: 100%%; background-color: var(--primary-color); color: white; border: none; padding: 12px;
             border-radius: 6px; font-weight: bold; cursor: pointer; transition: filter 0.3s;
         }
 
         .btn-save:hover { filter: brightness(1.2); }
+        .btn-close {
+            width: 100%%; background-color: #f436b5; color: white; border: none; padding: 12px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; transition: filter 0.3s;
+            position: relative;
+        }
 
         .security-note { 
             font-size: 0.8rem; color: #64748b; margin-top: 1rem; 
             background: rgba(15, 23, 42, 0.5); padding: 10px; border-left: 4px solid var(--primary-color); 
         }
-        .btn-close {
-            width: 100%%; background-color: #f436b5; color: white; border: none; padding: 12px;
-            border-radius: 6px; font-weight: bold; cursor: pointer; transition: filter 0.3s;
-            position: relative; top: 20px;
-        }
+
         /* Responsividade para Mobile */
         @media (max-width: 768px) {
             .config-container { flex-direction: column; }
             .title_header, .container_mqtt { width: 100%%; padding: 1.5rem; }
         }
-
+        .mqtt-config-table {
+            width: 100%%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            font-family: sans-serif;
+            min-width: 600px;
+        }
+        .mqtt-config-table th, .mqtt-config-table td, .mqtt-config-table a {
+            /*border: 1px solid #64748b;*/
+            padding: 8px;
+            text-align: left;
+            color: #64748b;
+        }
+        .mqtt-config-table th {border: 1px solid #64748b;}
+        .mqtt-config-table th {
+            background-color: #7a00ff;
+            font-weight: bold;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -415,18 +441,29 @@ const char index_html[] PROGMEM = R"rawliteral(
     </section>
     <script>
 
-        document.querySelector('.mqtt').addEventListener('click', () => {
-            if (!document.querySelector('.nexusDialog')) {
-                document.body.insertAdjacentHTML('beforeend', mqqt_fotm());
+        document.querySelector('.mqtt').addEventListener('click', async () => {
+            try {
+                // Busca os dados atuais do ESP
+                const response = await fetch('/status');
+                const data = await response.json();
+                const profiles = data.mqtt || []; // Usando a chave 'mqtt' que definimos no ESP
+
+                // Remove dialog antigo se existir para atualizar os dados
+                const oldDialog = document.querySelector('.nexusDialog');
+                if (oldDialog) oldDialog.remove();
+
+                document.body.insertAdjacentHTML('beforeend', mqqt_fotm(profiles));
                 
-                // Adiciona o evento de fechar ao clicar fora (Backdrop)
                 const dialog = document.querySelector('.nexusDialog');
                 dialog.addEventListener('click', (e) => {
                     if (e.target === dialog) closeMqttDialog();
                 });
+                
+                dialog.showModal();
+            } catch (err) {
+                console.error("Erro ao carregar perfis:", err);
             }
-            document.querySelector('.nexusDialog').showModal();
-        })
+        });
 
         // Função para fechar e remover (limpar memória do navegador)
         function closeMqttDialog() {
@@ -464,6 +501,9 @@ const char index_html[] PROGMEM = R"rawliteral(
                 if(response.ok) {
                     alert("Configuração MQTT atualizada com sucesso!");
                     closeMqttDialog();
+                    setTimeout(() => location.reload(), 500); // Dá tempo do ESP processar o LittleFS
+                } else if(response.status === 409) {
+                    alert("Erro: Este IP e Tópico já estão cadastrados ou limite de 10 perfis atingido.");
                 }
             } catch (err) {
                 console.error("Falha ao salvar:", err);
@@ -471,8 +511,41 @@ const char index_html[] PROGMEM = R"rawliteral(
                 btn.innerText = "Salvar no ESP32";
             }
         }
-        let mqqt_fotm = () => {
-            return (`
+        async function setActiveMqtt(uuid) {
+            try {
+                const response = await fetch('/set_active_mqtt', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uuid: uuid })
+                });
+
+                if (response.ok) {
+                    console.log("Perfil ativo alterado!");
+                    // Opcional: recarregar o dialog ou apenas desmarcar os outros checkboxes via JS
+                    location.reload(); // Recarrega para garantir sincronia total
+                } else {
+                    alert("Falha ao alterar perfil ativo.");
+                }
+            } catch (err) {
+                console.error("Erro na requisição PATCH:", err);
+            }
+        }
+        let mqqt_fotm = (profiles = []) => {
+            // Gera as linhas da tabela dinamicamente
+            const tableRows = profiles.map(p => `
+                <tr data-uuid="${p.uuid}">
+                    <td>${p.clientId || 'N/A'}</td>
+                    <td>${p.broker}</td>
+                    <td>${p.port}</td>
+                    <td>${p.user}</td>
+                    <td>${p.topic}</td>
+                    <td>${p.ssl ? 'Sim' : 'Não'}</td>
+                    <td>${p.qos}</td>
+                    <td><input type="checkbox"${p.active ? 'checked' : ''} onchange="setActiveMqtt('${p.uuid}')"></td>
+                    <td><a href="javascript:void(0)" onclick="deleteMqtt('${p.uuid}')"><span class="material-symbols-outlined" style="color: #ff4d4d;">delete</span></a></td>
+                </tr>
+            `).join('');
+            return `
                 <dialog class="nexusDialog">
                     <div class="config-container">
                         <div class="title_header">
@@ -524,16 +597,36 @@ const char index_html[] PROGMEM = R"rawliteral(
                                 </select>
                             </div>
 
-                            <button type="button" class="btn-save" onclick="saveMqttConfig()">Salvar Configuração</button>
+                            <div class="btn-mqtt">
+                                <button type="button" class="btn-save" onclick="saveMqttConfig()">Salvar Configuração</button>
+                                <button class="btn-close" onclick="closeMqttDialog()">CANCELAR</button>
+                            </div>
                         </form>
 
                         <div class="security-note">
                             <strong>Dica de Segurança:</strong> Nunca use o broker sem senha em redes públicas. Para WebSockets (HTML), certifique-se de que o broker suporta conexões <code>wss://</code>.
                         </div>
-                        <button class="btn-close" onclick="closeMqttDialog()">CANCELAR</button>
+                        <table class="mqtt-config-table">
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Broker</th>
+                                <th>Port</th>
+                                <th>User</th>
+                                <th>Topic</th>
+                                <th>SSL</th>
+                                <th>QoS</th>
+                                <th>Active</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows || '<tr><td colspan="9">Nenhum perfil cadastrado</td></tr>'}
+                        </tbody>
+                    </table>
                     </div>
                 </dialog>
-            `)
+            `
         }
 
         let html_form = (list) => {
@@ -718,47 +811,49 @@ const char index_html[] PROGMEM = R"rawliteral(
             }
         window.addEventListener('DOMContentLoaded', carregarGpios);
 
-        let verificarStatus = async (event) =>  {
+        let verificarStatus = async (event) => {
             try {
                 let response = await fetch('/status');
                 let data = await response.json();
-                console.log("Estados atuais:", data);
 
-                if (!Array.isArray(data)) return;
-                     
-                data.forEach((data) => {
-                    if (!data || data.pin === undefined) return;
-           
-                    let pin = data.pin;
-                    let state = data.state;
-                    let mode = data.mode;
-                    let level = data.level;
-                    let vincularpin = data.vincularpin;
-                          
-                    let switchInput = document.querySelector(`input[name="gpio_${pin}"][data-gpio="${pin}"]`);
-                    if (switchInput) switchInput.checked = state;
+                // 1. Condicional: Verifica se há dados no array de pinos
+                if (!data.pins || data.pins.length === 0) {
+                    console.log("Nenhum pino configurado no sistema.");
+                    return; // Encerra aqui se o array estiver vazio []
+                }
+
+                // 2. Processamento (Só ocorre se houver itens)
+                data.pins.forEach((item) => {
+                    if (!item || item.pin === undefined) return;
+
+                    const pin = item.pin;
                     
-                    // 2. Sincroniza o Modo (Radio)
-                    let modes = mode ===  0 && "INPUT" || mode === 1 && "OUTPUT" || mode === 2 && "INPUT_PULLUP" || mode === 3 && "INPUT_PULLDOWN";
-                    let modeInput = document.querySelector(`input[value="${modes}"][data-gpio="${pin}"]`);
+                    // Sincroniza o Switch (Estado real do GPIO)
+                    const switchInput = document.querySelector(`input[name="gpio_${pin}"][data-gpio="${pin}"]`);
+                    if (switchInput) switchInput.checked = !!item.state;
+
+                    // Sincroniza o Modo
+                    const modesMap = { 0: "INPUT", 1: "OUTPUT", 2: "INPUT_PULLUP", 3: "INPUT_PULLDOWN" };
+                    const modeInput = document.querySelector(`input[value="${modesMap[item.mode]}"][data-gpio="${pin}"]`);
                     if (modeInput) modeInput.checked = true;
-                    
-                    // 3. Sincroniza o Nível Lógico (HIGH/LOW)
-                    let levelInput = document.querySelector(`input[value="${level}"][data-gpio="${pin}"]`);
-                    if (levelInput) levelInput.checked = true;
-                    
-                    // Dentro do seu loop de sincronização
-                    let linkSelect = document.querySelector(`.link-select[data-gpio="${pin}"]`);
+
+                    // Sincroniza o Vínculo (Select)
+                    const linkSelect = document.querySelector(`.link-select[data-gpio="${pin}"]`);
                     if (linkSelect) {
-                        // Se não houver vínculo (ex: -1 ou undefined), volta para "NENHUM"
-                        linkSelect.value = (vincularpin !== undefined && vincularpin !== null) ? vincularpin.toString() : "-1";
+                        linkSelect.value = (item.vincularpin != null) ? item.vincularpin.toString() : "-1";
                     }
                 });
-               
+
+                // 3. Condicional para MQTT (Exemplo se precisar processar)
+                if (data.mqtt && data.mqtt.length > 0) {
+                    console.log(`Encontrados ${data.mqtt.length} perfis MQTT.`);
+                    // Lógica para preencher campos de MQTT aqui...
+                }
+
             } catch (err) {
-                console.error("Erro ao ler estados:", err);
+                console.error("Erro na comunicação com o Nexus:", err);
             }
-        } 
+        }
         
         window.addEventListener('DOMContentLoaded', verificarStatus);
 
