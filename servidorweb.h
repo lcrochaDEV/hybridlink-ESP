@@ -13,6 +13,7 @@
 
 #include <ESPAsyncWebServer.h>
 #include "index_html.h"
+#include "mqtt_html.h"
 
 #include "AccessControl.h"
 #include "EspMqtt.h"
@@ -60,7 +61,9 @@ void startServer() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send_P(200, "text/html", index_html, processor);
     });
-    
+    server.on("/mqtt", HTTP_GET, [](AsyncWebServerRequest *request){
+         request->send_P(200, "text/html", mqtt_html, processor);
+    });
     server.on("/config_pinos", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "application/json", accessSys.pinGPIO());
     });
@@ -161,7 +164,7 @@ void startServer() {
         // Se carregar o config e ele não for nulo
         if (accessSys.loadConfig(doc)) {
             
-            // Sincroniza pinos apenas se o array existir
+            // 1. Sincronização do estado físico dos Pinos
             if(doc["pins"].is<JsonArray>()){
                 for (JsonObject p : doc["pins"].as<JsonArray>()) {
                     if (p.containsKey("pin")) {
@@ -172,8 +175,18 @@ void startServer() {
                 doc["pins"].to<JsonArray>(); // Garante [] se não existir
             }
 
-            // Garante que mqtt seja sempre um array, sem duplicar chaves
-            if (!doc["mqtt"].is<JsonArray>()) {
+            // 2. Verificação Real da Conexão MQTT (Hardware -> JSON)
+            if (doc["mqtt"].is<JsonArray>()) {
+                for (JsonObject p : doc["mqtt"].as<JsonArray>()) {
+                    // p["active"].as<bool>() garante que o tipo seja tratado corretamente
+                    if (p["active"].as<bool>() == true) {
+                        // O status 'online' vem direto do PubSubClient via mqttService
+                        p["online"] = mqttService.isConnected(); 
+                    } else {
+                        p["online"] = false;
+                    }
+                }
+            } else {
                 doc["mqtt"].to<JsonArray>();
             }
 
@@ -236,8 +249,12 @@ void startServer() {
                         doc["port"]   | 1883, 
                         doc["topic"]  | "", 
                         doc["user"]   | "", 
-                        doc["passw"]  | ""
+                        doc["passw"]  | "",
+                        doc["qos"]    | 0,
+                        doc["ssl"]    | false
                     );
+                    mqttService.begin();
+                    mqttService.forceUpdate();
                     Serial.println(F("Serviço MQTT atualizado: Perfil Ativo."));
                 } else {
                     Serial.println(F("Perfil salvo em background (Inativo)."));
@@ -256,9 +273,84 @@ void startServer() {
         }
     });
 
-  // Inicia o Servidor 
-  server.begin();
-  Serial.println("Servidor HTTP Async Iniciado!");
-}
+    server.on("/set_active_mqtt", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        static std::vector<uint8_t> buffer;
+        if (index == 0) { buffer.clear(); buffer.reserve(total); }
+        buffer.insert(buffer.end(), data, data + len);
+
+        if (index + len < total) return; 
+
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, buffer.data(), buffer.size());
+        std::vector<uint8_t>().swap(buffer);
+
+        if (error || !doc.containsKey("uuid")) return request->send(400, "application/json", "{\"error\":\"UUID obrigatorio\"}");
+
+        const char* targetUuid = doc["uuid"];
+
+        if (accessSys.toggleMqttActive(targetUuid)) {
+            JsonDocument fullConfig;
+            bool encontrouAtivo = false; // Flag crucial
+
+            if (accessSys.loadConfig(fullConfig)) {
+                for (JsonObject item : fullConfig["mqtt"].as<JsonArray>()) {
+                    if (item["active"] == true) {
+                        // Configura e conecta se houver um ativo
+                        mqttService.updateConfig(
+                            item["broker"] | "", 
+                            item["port"]   | 1883, 
+                            item["topic"]  | "", 
+                            item["user"]   | "", 
+                            item["passw"]  | "",
+                            item["qos"]    | 0,
+                            item["ssl"]    | false
+                        );
+                        mqttService.begin();
+                        mqttService.forceUpdate();
+                        encontrouAtivo = true;
+                        break; 
+                    }
+                }
+            }
+
+            // Se após o loop NINGUÉM estiver ativo, desconectamos o hardware
+            if (!encontrouAtivo) {
+                Serial.println(F("[MQTT] Interface: Desativando conexão..."));
+                mqttService.disconnect();
+            }
+
+            request->send(200, "application/json", "{\"status\":\"success\"}");
+        } else {
+            request->send(404, "application/json", "{\"error\":\"UUID nao encontrado\"}");
+        }
+    });
+    server.on("/delete_mqtt", HTTP_DELETE, [](AsyncWebServerRequest *request){}, NULL, 
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        
+        static std::vector<uint8_t> buffer;
+        if (index == 0) { buffer.clear(); buffer.reserve(total); }
+        buffer.insert(buffer.end(), data, data + len);
+
+        if (index + len < total) return; 
+
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, buffer.data(), buffer.size());
+        std::vector<uint8_t>().swap(buffer);
+
+        if (error || !doc.containsKey("uuid")) return request->send(400);
+
+        // Chama a lógica de exclusão no sistema de arquivos
+        if (accessSys.deleteMqttProfile(doc["uuid"])) {
+            request->send(200, "application/json", "{\"status\":\"deleted\"}");
+        } else {
+            request->send(404, "application/json", "{\"error\":\"UUID nao encontrado\"}");
+        }
+    });
+    // Inicia o Servidor 
+    server.begin();
+    Serial.println("Servidor HTTP Async Iniciado!");
+    }
 
 #endif

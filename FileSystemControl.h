@@ -54,6 +54,8 @@ class FileSystemControl {
     void runMirroring();
     void factoryReset(); // DELETA ARQUIVO DE CONFIGURAÇÕES   
     bool saveMqttFullConfig(JsonObject newConfig); //MQTT SAVE JSON
+    bool toggleMqttActive(const char* uuid);
+    bool deleteMqttProfile(const char* uuid);
 };
 
 #endif

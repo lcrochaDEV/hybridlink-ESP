@@ -8,6 +8,8 @@
 #endif
 #include <PubSubClient.h>
 
+void processarMensagemMqtt(char* topic, byte* payload, unsigned int length);
+
 class EspMqtt {
   private:
     WiFiClient espClient;
@@ -22,6 +24,7 @@ class EspMqtt {
     const char* _passw;
     int _qos;
     unsigned long lastReconnectAttempt;
+    
 
     void reconnect();
 
@@ -30,14 +33,14 @@ class EspMqtt {
     EspMqtt(const char* server = nullptr, int port = 1883, const char* clientId = "ESP32_Nexus");
 
     // Inicialização: Define o tópico e a função de callback para mensagens recebidas
-    void begin(const char* topic, MQTT_CALLBACK_SIGNATURE);
+    void begin();
 
     // Atualização Dinâmica: Essencial para o novo endpoint /config_mqtt
     // Permite trocar o Broker e Tópico sem resetar o ESP32
     void updateConfig(const char* newServer, int newPort, const char* newTopic, const char* newUser, const char* newPassw, int newQos = 0, bool useSsl = false);
     // Loop principal: Gerencia reconexão não-bloqueante
     void update();
-
+    void forceUpdate();
     // Métodos de Publicação
     bool publish(const char* payload);
     bool publishToTopic(const char* customTopic, const char* payload);
@@ -46,6 +49,7 @@ class EspMqtt {
     const char* getServer() { return _server; }
     const char* getTopic() { return _topic; }
     bool isConnected() { return client.connected(); }
+    void disconnect();
 };
 
 #endif

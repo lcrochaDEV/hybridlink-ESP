@@ -32,6 +32,7 @@ void setup() {
 void loop() {
   //CONSOLE
   console.consoleView();
+  mqttService.update();
 }
 
 void setupFS() {

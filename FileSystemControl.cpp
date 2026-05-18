@@ -287,6 +287,7 @@ void FileSystemControl::factoryReset() {
     }
 }
 
+//MQTT CONFIG
 //MQTT SAVE JSON
 bool FileSystemControl::saveMqttFullConfig(JsonObject newConfig) {
     JsonDocument doc;
@@ -334,6 +335,68 @@ bool FileSystemControl::saveMqttFullConfig(JsonObject newConfig) {
     }
     return false;
 }
+
+bool FileSystemControl::toggleMqttActive(const char* uuid) {
+    JsonDocument doc;
+    if (!loadConfig(doc)) return false;
+
+    if (!doc["mqtt"].is<JsonArray>()) return false;
+
+    JsonArray mqttArray = doc["mqtt"].as<JsonArray>();
+    bool found = false;
+
+    // Percorre o array para ajustar os estados
+    for (JsonObject p : mqttArray) {
+        const char* currentUuid = p["uuid"] | "";
+        
+        if (strcmp(currentUuid, uuid) == 0) {
+            p["active"] = true;  // Ativa o alvo
+            found = true;
+        } else {
+            p["active"] = false; // Desativa todos os outros
+        }
+    }
+
+    if (found) {
+        File file = LittleFS.open("/config.json", "w");
+        if (file) {
+            serializeJson(doc, file);
+            file.close();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool FileSystemControl::deleteMqttProfile(const char* uuid) {
+    JsonDocument doc;
+    if (!loadConfig(doc)) return false;
+    if (!doc["mqtt"].is<JsonArray>()) return false;
+
+    JsonArray mqttArray = doc["mqtt"].as<JsonArray>();
+    bool removed = false;
+
+    // Percorre o array de trás para frente para remover com segurança
+    for (size_t i = 0; i < mqttArray.size(); i++) {
+        if (strcmp(mqttArray[i]["uuid"] | "", uuid) == 0) {
+            mqttArray.remove(i);
+            removed = true;
+            break; 
+        }
+    }
+
+    if (removed) {
+        File file = LittleFS.open("/config.json", "w");
+        if (file) {
+            serializeJson(doc, file);
+            file.close();
+            return true;
+        }
+    }
+    return false;
+}
+//MQTT CONFIG ->
 
 /*
 {
