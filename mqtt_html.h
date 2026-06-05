@@ -234,7 +234,6 @@ const char mqtt_html[] PROGMEM = R"rawliteral(
 
                     <div class="btn-mqtt">
                         <button type="button" class="btn-save" onclick="saveMqttConfig()">Salvar Configuração</button>
-                        <button class="btn-close" onclick="closeMqttDialog()">CANCELAR</button>
                     </div>
                 </form>
                 
@@ -275,7 +274,13 @@ const char mqtt_html[] PROGMEM = R"rawliteral(
                 qos: parseInt(document.getElementById('qos')?.value || 0) // 0, 1 ou 2
             };
 
+            if(!formData.broker || !formData.topic) {
+                alert("Broker e Tópico Base são obrigatórios!");
+                return;
+            }
+
             btn.innerText = "SINCRONIZANDO...";
+            btn.disabled = true;
             
             try {
                 // Envio para o seu backend/ESP32
@@ -286,16 +291,29 @@ const char mqtt_html[] PROGMEM = R"rawliteral(
                 });
 
                 if(response.ok) {
-                    alert("Configuração MQTT atualizada com sucesso!");
-                    closeMqttDialog();
-                    setTimeout(() => location.reload(), 500); // Dá tempo do ESP processar o LittleFS
+                    //alert("Configuração MQTT atualizada com sucesso!");
+
+                    // Busca os dados atualizados diretamente do ESP32 de forma silenciosa
+                    const statusRes = await fetch('/status');
+                    const statusData = await statusRes.json();
+                    const profiles = statusData.mqtt || [];
+
+                    // Renderiza novamente a tabela com os novos dados inseridos
+                    document.querySelector('.mqtt-config-table').innerHTML = mqqt_fotm(profiles);
+
+                    // Limpa o formulário após o sucesso para um novo cadastro
+                    document.getElementById('mqtt-form').reset();
+                    document.getElementById('port').value = "1883";
+                    document.getElementById('qos').value = "1";
                 } else if(response.status === 409) {
                     alert("Erro: Este IP e Tópico já estão cadastrados ou limite de 10 perfis atingido.");
                 }
             } catch (err) {
                 console.error("Falha ao salvar:", err);
+                alert("Erro ao conectar com o servidor do ESP32.");
             } finally {
-                btn.innerText = "Salvar no ESP32";
+                btn.innerText = "Salvar Configuração";
+                btn.disabled = false;
             }
         }
         async function setActiveMqtt(uuid) {

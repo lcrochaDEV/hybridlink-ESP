@@ -1,14 +1,11 @@
 //sketch.ino
 #include "WirelessConnection.h"
 #include "servidorweb.h"
-
 #include "AccessControl.h"
 #include "Console.h"
+
 Console console = Console("Mochi> ");
-
-
 WirelessConnection wirelessConnection;
-
 AccessControl sysFS("MinhaRede", "12345678");
 
 void setup() {
@@ -25,38 +22,50 @@ void setup() {
   startServer();   
   setupFS();
   console.helloWord();
-  //sysFS.factoryReset();
-  //sysFS.returnObjectData();
 }
 
 void loop() {
-  //CONSOLE
   console.consoleView();
-  mqttService.update();
+
+  // Chama direto o update da classe. Ela mesma sabe se deve rodar e o tempo certo!
+  mqttService.update(); 
 }
 
 void setupFS() {
-  //Serial.begin(115200);
-  
   if(sysFS.begin()) {
       JsonDocument doc;
       
-      sysFS.loadConfig(doc);
-      // Só grava as credenciais se o arquivo não puder ser carregado
       if(!sysFS.loadConfig(doc)) {
           Serial.println("Arquivo não encontrado. Criando base...");
+      } else {
+          // Garante que inicie desligado por segurança antes de validar
+          mqttService.disable(); 
+
+          if (doc.containsKey("mqtt") && doc["mqtt"].is<JsonArray>()) {
+              for (JsonObject item : doc["mqtt"].as<JsonArray>()) {
+                  if (item["active"] == true) {
+                      Serial.println("[MQTT] Perfil ativo encontrado no boot! Inicializando...");
+                      
+                      mqttService.updateConfig(
+                          item["broker"] | "", 
+                          item["port"]   | 1883, 
+                          item["topic"]  | "", 
+                          item["user"]   | "", 
+                          item["passw"]  | "",
+                          item["qos"]    | 0,
+                          item["ssl"]    | false
+                      );
+                      
+                      mqttService.begin();
+                      
+                      // ATIVA O FILTRO INTERNO DA CLASSE
+                      mqttService.enable(); 
+                      break; 
+                  }
+              }
+          }
       }
-
-      //sysFS.credentials();
-      //sysFS.addPinConfig();
-      //sysFS.loadConfig(doc); // Carrega após gravar
-      //sysFS.addPinConfig(0, "OUTPUT", "LOW");
-      //sysFS.addPinConfig(2, "OUTPUT", "HIGH");
-
-      
       Serial.print("SSID Ativo: ");
       Serial.println(doc["ssid"].as<const char*>());
   }
 }
-
-

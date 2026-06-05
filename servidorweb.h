@@ -339,10 +339,39 @@ void startServer() {
         DeserializationError error = deserializeJson(doc, buffer.data(), buffer.size());
         std::vector<uint8_t>().swap(buffer);
 
-        if (error || !doc.containsKey("uuid")) return request->send(400);
+        if (error || !doc.containsKey("uuid")) {
+            return request->send(400, "application/json", "{\"error\":\"UUID obrigatorio\"}");
+        }
 
-        // Chama a lógica de exclusão no sistema de arquivos
+        // 1. Chama a lógica de exclusão no sistema de arquivos (LittleFS)
         if (accessSys.deleteMqttProfile(doc["uuid"])) {
+            
+            // 2. Verifica se o perfil deletado era o que estava ativo no hardware
+            JsonDocument fullConfig;
+            bool restouAlgumAtivo = false;
+
+            if (accessSys.loadConfig(fullConfig)) {
+                if (fullConfig.containsKey("mqtt") && fullConfig["mqtt"].is<JsonArray>()) {
+                    for (JsonObject item : fullConfig["mqtt"].as<JsonArray>()) {
+                        if (item["active"] == true) {
+                            restouAlgumAtivo = true;
+                            break; // Ainda existe um perfil ativo configurado
+                        }
+                    }
+                }
+            }
+
+            // 3. Se NÃO restou nenhum perfil ativo no arquivo, limpa o objeto e desliga a conexão
+            if (!restouAlgumAtivo) {
+                Serial.println(F("[MQTT] Perfil ativo deletado! Desconectando hardware e limpando objeto..."));
+                
+                mqttService.disable();     // Desabilita a verificação de tempo no loop do sketch
+                mqttService.disconnect();  // Corta o socket TCP com o Broker imediatamente
+                
+                // Opcional: Reseta as strings internas para o estado padrão ("vazio")
+                mqttService.updateConfig("", 1883, "", "", "", 0, false); 
+            }
+
             request->send(200, "application/json", "{\"status\":\"deleted\"}");
         } else {
             request->send(404, "application/json", "{\"error\":\"UUID nao encontrado\"}");
